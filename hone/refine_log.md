@@ -11,10 +11,10 @@ sitting, with nobody creating an account, and every finished trip quietly become
 - [x] 3. Checker: unit tests (node) + browser gates (Playwright) + screenshots
 - [x] 4. Baseline score v0 against the frozen rubric
 - [x] 5. Hone loop (max 5 rounds, keep-best)
-- [ ] 6. Publish: GitHub repo juw12/tagalong + Pages, verify live
-- [ ] 7. Sync: profile README, portfolio card, landing page, Obsidian note + Update Log
-- [ ] 8. App Store route: state exactly what is needed (cannot be produced from this PC)
-- [ ] 9. Precedent log + cairn session end
+- [x] 6. Publish: GitHub repo juw12/tagalong + Pages, verify live
+- [x] 7. Sync: profile README, portfolio card, landing page, Obsidian note + Update Log
+- [x] 8. App Store route: state exactly what is needed (cannot be produced from this PC). Stated below; the build itself needs Juwen
+- [x] 9. Precedent log + cairn session end
 
 ## Assumptions
 
@@ -118,3 +118,28 @@ and screenshots of this app; they did not install Otw or Traveler. Competitor cl
 - Receipts are pasted as text; no camera scan.
 - The green "gets back" amount is a second colour next to the rust accent.
 - Minor: on the Group tab the toast can cover the "You are" select for a few seconds.
+
+## Sync results (2026-11-13)
+
+- GitHub repo: https://github.com/juw12/tagalong, app at commit `9863333`; live https://juw12.github.io/tagalong/ returned 200.
+  Live gates: 9/9 browser gates plus 12/12 unit tests.
+- Landing page: https://juw12.github.io/p/tagalong/ returned 200; site commit `784eb71` (juw12/juw12.github.io).
+- Profile README: juw12/juw12 commit `37d6c59`.
+- Portfolio card: category Apps on https://juwenlie.pages.dev. Card art juw12/portfolio `f9f764d`, catalog
+  juw12/projects `550dcf0`, sync-cards run 43402083082 success. House-style check: all 65 cards pass.
+  Page check: 10/10 gates. Every public repo has a card. Substack draft issue juw12/portfolio #72 was opened by the workflow.
+- Obsidian: project note and Update Log, vault commit `3801945` (private).
+
+## App Store route (needs Juwen, not done)
+
+This PC cannot produce an App Store build. What it takes:
+
+1. A Mac with Xcode.
+2. Apple Developer Program membership (US$99 a year).
+3. Wrap this same web app with Capacitor (the app is static files with no server, so nothing else changes),
+   add icons and a privacy label ("no data collected" is true as built), then submit for review.
+
+Until then the app installs on iPhone from Safari with Share, then "Add to Home Screen", and works offline.
+Not checked: whether App Store review accepts a wrapped web app of this kind.
+
+stop: needs you for the native App Store build. Everything else in the queue is done.
