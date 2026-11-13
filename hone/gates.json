@@ -1,0 +1,62 @@
+{
+  "base": "local",
+  "date": "2026-11-13T15:57:20",
+  "passed": 9,
+  "of": 9,
+  "gates": {
+    "G2": {
+      "name": "no JS or console errors",
+      "pass": true,
+      "checks": 1,
+      "failures": []
+    },
+    "G3": {
+      "name": "no horizontal overflow at 320-1440",
+      "pass": true,
+      "checks": 121,
+      "failures": []
+    },
+    "G4": {
+      "name": "WCAG AA contrast, light and dark",
+      "pass": true,
+      "checks": 121,
+      "failures": []
+    },
+    "G5": {
+      "name": "tap targets >= 44 px on phone",
+      "pass": true,
+      "checks": 46,
+      "failures": []
+    },
+    "G6": {
+      "name": "no text under 12 px",
+      "pass": true,
+      "checks": 121,
+      "failures": []
+    },
+    "G7": {
+      "name": "one h1 + title + viewport on every view",
+      "pass": true,
+      "checks": 121,
+      "failures": []
+    },
+    "G8": {
+      "name": "works offline after first load",
+      "pass": true,
+      "checks": 7,
+      "failures": []
+    },
+    "G9": {
+      "name": "end-to-end flow",
+      "pass": true,
+      "checks": 140,
+      "failures": []
+    },
+    "G10": {
+      "name": "money rows add up to the total",
+      "pass": true,
+      "checks": 12,
+      "failures": []
+    }
+  }
+}

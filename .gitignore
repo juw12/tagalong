@@ -1,0 +1,10 @@
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+hone/tmp/
+hone/smoke/
+hone/backup_v0/
+hone/shots/
+hone/judge/*.json
+hone/gates_live.json

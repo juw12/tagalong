@@ -1,0 +1,17 @@
+{
+  "name": "Tagalong: group trip planner",
+  "short_name": "Tagalong",
+  "description": "Plan a trip with your group, vote on ideas, split every bill to the cent, and keep a private travel history. No account, works offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f0e6",
+  "theme_color": "#f5f0e6",
+  "categories": ["travel", "finance", "productivity"],
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
