@@ -26,6 +26,7 @@ from relay import Relay  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser()
 parser.add_argument("--base", default="")
+parser.add_argument("--proxy", default="")
 ARGS = parser.parse_args()
 
 results = []
@@ -304,7 +305,7 @@ def main():
     relay = Relay()
     relay_url = relay.start()
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        browser = playwright.chromium.launch(**({"proxy": {"server": ARGS.proxy, "bypass": "<-loopback>,localhost,127.0.0.1"}} if ARGS.proxy else {}))
         try:
             run(browser, base, relay_url, relay)
         except Exception as error:
@@ -312,7 +313,7 @@ def main():
         browser.close()
     passed = sum(ok for _, ok, _ in results)
     print(f"G11 {'PASS' if passed == len(results) else 'FAIL'} ({passed}/{len(results)} checks) v2 features")
-    (ROOT / "hone" / "gates_v2.json").write_text(json.dumps({"base": ARGS.base or "local", "checks": [[label, ok] for label, ok, _ in results]}, indent=1))
+    (ROOT / "hone" / ("gates_v2_live.json" if ARGS.base else "gates_v2.json")).write_text(json.dumps({"base": ARGS.base or "local", "checks": [[label, ok] for label, ok, _ in results]}, indent=1))
     sys.exit(0 if passed == len(results) else 1)
 
 

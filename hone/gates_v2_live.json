@@ -1,0 +1,177 @@
+{
+ "base": "https://juw12.github.io/tagalong/",
+ "checks": [
+  [
+   "sample tag opens the sample trip",
+   true
+  ],
+  [
+   "invite button on the plan tab",
+   true
+  ],
+  [
+   "invite button on the ideas tab",
+   true
+  ],
+  [
+   "invite button on the places tab",
+   true
+  ],
+  [
+   "invite button on the money tab",
+   true
+  ],
+  [
+   "invite button on the group tab",
+   true
+  ],
+  [
+   "invite sheet holds a join link",
+   true
+  ],
+  [
+   "'gets back' uses ink, not green",
+   true
+  ],
+  [
+   "sample trip has 4 saved places",
+   true
+  ],
+  [
+   "collections are listed",
+   true
+  ],
+  [
+   "filter by collection",
+   true
+  ],
+  [
+   "saved place lands in its collection",
+   true
+  ],
+  [
+   "place turns into an idea",
+   true
+  ],
+  [
+   "organizer badge shown",
+   true
+  ],
+  [
+   "organizer sees role controls",
+   true
+  ],
+  [
+   "plan lock is on",
+   true
+  ],
+  [
+   "member sees no role controls",
+   true
+  ],
+  [
+   "member cannot remove people",
+   true
+  ],
+  [
+   "member cannot edit trip details",
+   true
+  ],
+  [
+   "member cannot turn live sync on",
+   true
+  ],
+  [
+   "locked plan: no add buttons for a member",
+   true
+  ],
+  [
+   "locked plan: events cannot be dragged",
+   true
+  ],
+  [
+   "locked plan: event opens read-only",
+   true
+  ],
+  [
+   "locked plan: a member can still add ideas",
+   true
+  ],
+  [
+   "toast does not cover the focused field",
+   true
+  ],
+  [
+   "zoom-in button narrows the map",
+   true
+  ],
+  [
+   "dragging pans the map",
+   true
+  ],
+  [
+   "ctrl+wheel (trackpad pinch) zooms",
+   true
+  ],
+  [
+   "arrow keys pan the map",
+   true
+  ],
+  [
+   "zoom-out button widens the map",
+   true
+  ],
+  [
+   "two-finger pinch zooms",
+   true
+  ],
+  [
+   "receipt scan finds the 3 items",
+   true
+  ],
+  [
+   "receipt scan reads the prices",
+   true
+  ],
+  [
+   "receipt scan pulls tax out and skips the total",
+   true
+  ],
+  [
+   "OCR files come from this app, not a CDN",
+   true
+  ],
+  [
+   "scanned receipt saves as an expense",
+   true
+  ],
+  [
+   "live sync connects",
+   true
+  ],
+  [
+   "a change on one phone shows up on the other",
+   true
+  ],
+  [
+   "and back the other way",
+   true
+  ],
+  [
+   "the relay only ever saw ciphertext",
+   true
+  ],
+  [
+   "someone joining later gets the latest state from the old link",
+   true
+  ],
+  [
+   "turning live sync off reaches everyone",
+   true
+  ],
+  [
+   "no script errors",
+   true
+  ]
+ ]
+}

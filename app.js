@@ -413,7 +413,6 @@
       </li>`;
     }).join("");
     const liveOn = Boolean(trip.live && trip.live.key);
-    const status = rooms[trip.id] ? rooms[trip.id].status : null;
     const heard = rooms[trip.id] && rooms[trip.id].heard;
     return `<div class="group-grid">
       <div class="panel">
@@ -431,7 +430,7 @@
       <div class="panel">
         <h2 class="section-title">Live sync</h2>
         ${liveOn
-          ? `<p class="note"><b data-live-status="${trip.id}">${esc(liveText(trip))}</b>${status ? ` · ${status.up} of ${status.total} relays` : ""}${heard ? ` · last change from the group at ${new Date(heard).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
+          ? `<p class="note"><b data-live-status="${trip.id}">${esc(liveText(trip))}</b><span data-live-relays="${trip.id}">${esc(relayText(trip))}</span>${heard ? ` · last change from the group at ${new Date(heard).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
              <p class="note">Changes reach everyone who opened an invite link, within seconds while they are online and the next time they open the app if not. Everything is locked with a key that only exists inside your invite links; the free public relays that pass it on see scrambled bytes.</p>
              ${boss ? `<button class="btn" data-act="live-off">Turn live sync off</button>` : ""}`
           : `<p class="note">Off. Turn it on and every change reaches the group within seconds, no account needed. It uses free public relays, end-to-end encrypted with a key that only travels inside your invite links.</p>
@@ -1204,10 +1203,18 @@
     if (!entry) return "Live sync on";
     return entry.status.up ? "Live" : navigator.onLine === false ? "Live, offline" : "Live, connecting";
   }
+  function relayText(trip) {
+    const entry = rooms[trip.id];
+    return entry ? ` · ${entry.status.up} of ${entry.status.total} relays` : "";
+  }
   function paintLive() {
     for (const el of document.querySelectorAll("[data-live-status]")) {
       const trip = findTrip(el.dataset.liveStatus);
       if (trip) el.textContent = liveText(trip);
+    }
+    for (const el of document.querySelectorAll("[data-live-relays]")) {
+      const trip = findTrip(el.dataset.liveRelays);
+      if (trip) el.textContent = relayText(trip);
     }
   }
   function syncRooms() {

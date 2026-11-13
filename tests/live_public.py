@@ -1,4 +1,4 @@
-"""Live sync over the real public relays (broker.emqx.io and broker.hivemq.com), two separate browsers.
+﻿"""Live sync over the real public relays (broker.emqx.io, broker.hivemq.com, test.mosquitto.org), two separate browsers.
 
 python tests/live_public.py [--base <url>] [--proxy http://host:port]
 Needs internet. Reports how many relays each browser reached and how long a change took to arrive.
@@ -41,7 +41,7 @@ def main():
     base = ARGS.base or serve()
     if not base.endswith("/"):
         base += "/"
-    launch = {"proxy": {"server": ARGS.proxy, "bypass": "localhost,127.0.0.1"}} if ARGS.proxy else {}
+    launch = {"proxy": {"server": ARGS.proxy, "bypass": "<-loopback>,localhost,127.0.0.1"}} if ARGS.proxy else {}
     ok = True
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(**launch)
@@ -53,7 +53,7 @@ def main():
         alice.goto(base + "?demo=1#" + trip + "/group")
         alice.locator('[data-act="live-on"]').click()
         try:
-            alice.wait_for_function("() => /relays/.test(document.querySelector('.group-grid').innerText) && /\\b[12] of 2 relays/.test(document.querySelector('.group-grid').innerText)", timeout=30000)
+            alice.wait_for_function("() => /relays/.test(document.querySelector('.group-grid').innerText) && /\\b[1-9] of \\d relays/.test(document.querySelector('.group-grid').innerText)", timeout=30000)
         except Exception:
             pass
         print("alice:", relays_up(alice))
@@ -79,6 +79,14 @@ def main():
         except Exception:
             ok = False
             print("change did NOT arrive within 30 s")
+        # The relay count the person sees must follow the real connection, without a reload.
+        bob.goto(base + "#" + trip + "/group")
+        try:
+            bob.wait_for_function("() => /\\b[1-9] of \\d relays/.test(document.querySelector('.group-grid').innerText)", timeout=20000)
+            print("bob's screen shows:", relays_up(bob))
+        except Exception:
+            ok = False
+            print("bob's relay count never rose above 0:", relays_up(bob))
         browser.close()
     print("PUBLIC LIVE SYNC", "PASS" if ok else "FAIL")
     sys.exit(0 if ok else 1)

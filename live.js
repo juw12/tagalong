@@ -11,7 +11,8 @@
   "use strict";
 
   /* Two independent free brokers. Every peer uses both, so one going down does not split the group. */
-  const BROKERS = ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt"];
+  // Three free public relays on different ports, so a network that blocks one port still reaches another.
+const BROKERS = ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt", "wss://test.mosquitto.org:8081/mqtt"];
   const TOPIC = "tagalong/v1/";
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();

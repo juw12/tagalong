@@ -36,7 +36,7 @@ Android APK and iPhone sideload IPA: https://github.com/juw12/tagalong/releases/
 - "Invite", on every tab, makes a link that carries the whole trip. Whoever opens it gets the trip on their device.
 - Live sync, free and without accounts: changes reach everyone within seconds. Each trip gets a random 256-bit key
   that only travels inside invite links (after the `#`, which browsers never send anywhere). Every change is
-  encrypted with AES-GCM and passed through two free public MQTT relays (broker.emqx.io, broker.hivemq.com) as a
+  encrypted with AES-GCM and passed through three free public MQTT relays (broker.emqx.io, broker.hivemq.com, test.mosquitto.org, on three different ports) as a
   retained message, so someone who was offline catches up when they open the app. The relays only see ciphertext
   on a topic made from a hash of the key.
 - Without live sync, opening someone's link merges both copies: the newest edit of each item wins, votes add up.

@@ -54,7 +54,8 @@ jobs:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          echo "$KEYSTORE_B64" | base64 -d > release.p12
+          test -n "$KEYSTORE_B64" || { echo "ANDROID_KEYSTORE_B64 secret is empty"; exit 1; }
+          printf '%s' "$KEYSTORE_B64" | tr -d '\r\n\t ' | base64 -d > release.p12
           TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
           "$TOOLS/zipalign" -p -f 4 app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
           "$TOOLS/apksigner" sign --ks release.p12 --ks-type PKCS12 --ks-pass env:KEYSTORE_PASSWORD --out Tagalong.apk aligned.apk
