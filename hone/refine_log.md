@@ -143,3 +143,38 @@ Until then the app installs on iPhone from Safari with Share, then "Add to Home 
 Not checked: whether App Store review accepts a wrapped web app of this kind.
 
 stop: needs you for the native App Store build. Everything else in the queue is done.
+
+
+## v2 round (2026-11-13): close the v1 gaps without paying any fee
+
+Fixed from the v1 list: live sync (not just links), admin/member roles and plan lock, saved places,
+camera receipt scan (on-device OCR), map pan and pinch. Native builds come from GitHub Actions, so nothing is paid.
+
+Gates (final, local):
+- `node --test`: 17/17.
+- e2e browser gates: 9/9.
+- G11 feature checks: 43/43 (also 43/43 against https://juw12.github.io/tagalong/).
+- `tests/live_public.py` over the real public relays: PASS, a change reached the second phone in 1.6 to 1.8 s.
+
+Real-world finding: the office proxy answers HTTP 403 on the MQTT WebSocket ports 8084 and 8884, so the first
+live run failed. Added a third free relay on port 8081 (test.mosquitto.org), which the proxy allows, and fixed the
+"N of M relays" label that never updated after the first paint. Behind this proxy the app shows "1 of 3 relays".
+
+Release: https://github.com/juw12/tagalong/releases/tag/v2.0.0 (workflow run 43422620189, all jobs green).
+- `Tagalong.apk` signed with the project key (cert SHA-256 6B:A4:51:...:EC:00, checked from the downloaded file).
+- `Tagalong-unsigned.ipa` for free sideloading (AltStore or Sideloadly, re-sign every 7 days with a free Apple ID).
+- `SHA256SUMS.txt`; both sums re-checked on download.
+
+Commits: `c081f55` (v2 features), `d66934e` (third relay, live relay count, sturdier tests, APK signing fix).
+Synced: landing page site `ee6d5e5`, profile README `5f72304`, portfolio catalog juw12/projects `0793857`.
+
+Assumed:
+- Free public relays have no uptime promise; data is end-to-end encrypted (AES-GCM) and the key lives only in the invite link.
+- Roles are enforced by the app, not by cryptography.
+- App Store (US$99 a year) and Google Play (US$25) cost money, so the free routes are the web app, the APK release
+  (also works with Obtainium) and iPhone sideloading.
+
+Not verified: installing the APK or IPA on a real phone (no device or Java on this PC). The council (3 judges)
+pairwise of v2 against v1 was not run this round.
+
+stop: queue empty. Store listings need a paid developer account, which this run does not use.
