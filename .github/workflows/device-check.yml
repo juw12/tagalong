@@ -1,0 +1,123 @@
+# Does the release really install and run? Checked for free on GitHub's runners:
+#   Android: the released APK is installed on an emulator, opened and used (sample trip, live sync).
+#   iOS:     the released IPA is inspected, and the same project is built for the simulator, installed and opened.
+# Screenshots and results are kept as run artifacts. An emulator or simulator is not a physical phone.
+name: Device check
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to check, e.g. v2.0.0"
+        required: true
+        default: "v2.0.0"
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ github.event.inputs.tag }}
+
+jobs:
+  android-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [34, 30]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Let the runner use hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Screen reader for the check (OCR)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr
+      - name: Download the released APK and check its sum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p Tagalong.apk -p SHA256SUMS.txt -D out
+          cd out
+          EXPECTED=$(grep 'Tagalong.apk' SHA256SUMS.txt | cut -d' ' -f1)
+          ACTUAL=$(sha256sum Tagalong.apk | cut -d' ' -f1)
+          echo "expected $EXPECTED"
+          echo "actual   $ACTUAL"
+          test "$EXPECTED" = "$ACTUAL"
+      - name: Install and use the app on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: python3 tests/device/android_check.py out/Tagalong.apk evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-api-${{ matrix.api }}
+          path: evidence
+
+  ios-simulator:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Inspect the released IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p Tagalong-unsigned.ipa -p SHA256SUMS.txt -D out
+          cd out
+          EXPECTED=$(grep 'Tagalong-unsigned.ipa' SHA256SUMS.txt | cut -d' ' -f1)
+          ACTUAL=$(shasum -a 256 Tagalong-unsigned.ipa | cut -d' ' -f1)
+          test "$EXPECTED" = "$ACTUAL"
+          unzip -q Tagalong-unsigned.ipa
+          {
+            echo "bundle id: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' Payload/App.app/Info.plist)"
+            echo "version: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Payload/App.app/Info.plist)"
+            echo "minimum iOS: $(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' Payload/App.app/Info.plist)"
+            echo "architectures: $(lipo -archs Payload/App.app/App)"
+            echo "camera text: $(/usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' Payload/App.app/Info.plist)"
+            echo "web files: $(find Payload/App.app/public -type f | wc -l | tr -d ' ')"
+          } | tee ../evidence/ipa.txt
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' Payload/App.app/Info.plist)" = "io.github.juw12.tagalong"
+          lipo -archs Payload/App.app/App | grep -q arm64
+          test -f Payload/App.app/public/index.html
+          test -f Payload/App.app/public/app.js
+      - name: Wrap the web app
+        working-directory: native
+        run: |
+          npm install --no-audit --no-fund
+          node prepare.mjs
+          npx cap add ios
+          npx capacitor-assets generate --ios --splashBackgroundColor '#f5f0e6' --splashBackgroundColorDark '#16140f'
+          npx cap sync ios
+      - name: Same Info.plist edits as the release build
+        working-directory: native/ios/App/App
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Take a photo of a receipt to split it. The photo is read on this phone and never uploaded.'" Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Pick a photo of a receipt or a cover photo for a trip. Nothing is uploaded.'" Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${TAG#v}" Info.plist || true
+      - name: Build for the simulator
+        working-directory: native/ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 30
+          ls build/Build/Products/Debug-iphonesimulator/
+      - name: Install and open it in the simulator
+        run: bash tests/device/ios_check.sh native/ios/App/build/Build/Products/Debug-iphonesimulator/App.app evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-simulator
+          path: evidence
