@@ -1,10 +1,12 @@
-/* Tagalong service worker: the whole app shell is cached, so the app opens with no signal. */
-const VERSION = "tagalong-v2";
+/* Tagalong service worker: the whole app shell is cached, so the app opens with no signal.
+   The receipt reader (vendor/ocr) is cached the first time it is used. */
+const VERSION = "tagalong-v3";
 const SHELL = [
   "./",
   "index.html",
   "styles.css",
   "core.js",
+  "live.js",
   "world.js",
   "app.js",
   "manifest.webmanifest",

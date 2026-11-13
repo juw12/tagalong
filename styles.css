@@ -236,7 +236,7 @@ h3.block-title { margin: 18px 0 8px; }
 .what { display: grid; gap: 2px; min-width: 0; }
 .what strong { overflow-wrap: anywhere; }
 .what small { color: var(--muted); font-size: 0.875rem; overflow-wrap: anywhere; }
-.what small.cost { color: var(--good); font-weight: 600; }
+.what small.cost { color: var(--muted); font-weight: 600; }
 .what small.warn { color: var(--accent); }
 .map {
   flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-width: 56px; padding: 0 12px;
@@ -268,7 +268,7 @@ h3.block-title { margin: 18px 0 8px; }
 .money-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 32px; }
 .balances li { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .balances li span:last-child { color: var(--muted); text-align: right; }
-.balances li.plus span:last-child { color: var(--good); font-weight: 600; }
+.balances li.plus span:last-child { color: var(--ink); font-weight: 700; }
 .balances li.minus span:last-child { color: var(--accent); font-weight: 600; }
 .settle-list li {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
@@ -406,3 +406,65 @@ dialog#sheet::backdrop { background: rgba(20, 18, 14, 0.6); }
 @media (prefers-reduced-motion: no-preference) {
   .btn, .tag, .day, .vote, .seg button { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
 }
+
+
+/* ---------- v2 additions ---------- */
+.tabs { overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs a { flex: 1 0 auto; min-width: 56px; padding: 0 10px; }
+
+/* The sample tag on the first screen is one big link to the sample trip. */
+.ticket-open {
+  display: inline-flex; align-items: center; gap: 6px; justify-self: start; min-height: 44px; margin-top: 12px; padding: 0;
+  background: transparent; border: 0; color: var(--accent); font: 600 0.9375rem var(--sans); cursor: pointer;
+}
+.ticket-open::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.ticket-open:focus-visible { outline: none; }
+.ticket:has(.ticket-open:focus-visible) { outline: 3px solid var(--accent); outline-offset: 4px; }
+.ticket:has(.ticket-open:hover) { border-color: var(--accent); }
+.ticket-open svg { transition: transform 0.15s; }
+.ticket:has(.ticket-open:hover) .ticket-open svg { transform: translateX(3px); }
+
+/* Trip header: invite from every tab, live and lock status. */
+.trip-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.live-pill {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px;
+  border: 1px solid var(--edge); border-radius: 999px; color: var(--muted); font: 600 0.8125rem var(--mono); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.trip-head.has-photo .btn.invite { background: #fffdf8; border-color: #fffdf8; color: #1e1b16; }
+.trip-head.has-photo .live-pill { border-color: #f6ead8; color: #f6ead8; }
+
+/* Roles, lock switch, small print. */
+.role { margin-left: 6px; padding: 2px 8px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); font: 600 0.75rem var(--mono); text-transform: uppercase; letter-spacing: 0.04em; vertical-align: 2px; }
+.members .row { flex-wrap: wrap; justify-content: flex-end; }
+.check.switch { align-items: flex-start; margin-bottom: 12px; line-height: 1.4; border-radius: 12px; padding: 10px 12px; }
+.check.switch input { flex: none; margin-top: 2px; }
+.note.small { font-size: 0.8125rem; margin-top: 12px; }
+fieldset.plain { padding: 0; border: 0; }
+fieldset.plain[disabled] .field { opacity: 0.75; }
+
+/* Places and collections. */
+.lists { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.lists button {
+  min-height: 40px; padding: 0 14px; background: var(--card); border: 1px solid var(--edge); border-radius: 999px; font-weight: 600; font-size: 0.875rem;
+}
+.lists button b { margin-left: 4px; color: var(--muted); font: 600 0.8125rem var(--mono); }
+.lists button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.lists button[aria-pressed="true"] b { color: var(--paper); }
+.place .tagline { flex: none; align-self: center; padding: 0 10px; color: var(--muted); font: 600 0.8125rem var(--mono); text-transform: uppercase; }
+.place > .btn.small { flex: none; align-self: center; height: auto; min-height: 40px; margin: 0 10px 0 4px; white-space: nowrap; }
+
+/* Passport map: drag, pinch and zoom buttons. */
+.map-wrap { position: relative; }
+.world { touch-action: pan-y; cursor: grab; border-radius: 8px; }
+.world:active { cursor: grabbing; }
+.world:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.map-tools { position: absolute; top: 20px; right: 20px; display: grid; gap: 6px; }
+.map-tools .icon-btn { width: 44px; padding: 0; background: var(--card); font: 600 1.25rem/1 var(--sans); }
+
+/* Receipt scan. */
+.scan-row { align-items: center; }
+.scan-status { margin: 0; font-size: 0.875rem; }
+
+/* Toast: moves to the top when it would cover what you are working with. */
+#toast.top { top: calc(12px + env(safe-area-inset-top)); bottom: auto; }

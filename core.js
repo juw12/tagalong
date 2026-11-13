@@ -6,7 +6,8 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  const META = ["id", "u", "name", "start", "end", "currency", "rates", "stops", "transport", "dayModes", "sample"];
+  const META = ["id", "u", "name", "start", "end", "currency", "rates", "stops", "transport", "dayModes", "sample", "locked", "live"];
+  const LISTS = ["members", "events", "expenses", "places"];
   const DAY_START = 8 * 60;
   const DAY_END = 22 * 60;
   const MIN_GAP = 30;
@@ -192,9 +193,37 @@
   function mergeTrip(a, b) {
     const pickMeta = (trip) => Object.fromEntries(META.filter((key) => key in trip).map((key) => [key, trip[key]]));
     const merged = { ...newer(pickMeta(a), pickMeta(b)) };
-    for (const list of ["members", "events", "expenses"]) merged[list] = mergeList(a[list], b[list]);
+    for (const list of LISTS) merged[list] = mergeList(a[list], b[list]);
     return merged;
   }
+
+
+  /* Roles. Trips made before roles existed have no organizer, so everyone keeps full control there. */
+  function organizers(trip) {
+    const group = live(trip.members);
+    const named = group.filter((member) => member.role === "organizer");
+    return (named.length ? named : group).map((member) => member.id);
+  }
+  const isOrganizer = (trip, memberId) => organizers(trip).includes(memberId);
+  /* What a person may do: "trip" (details, lock), "people" (remove, roles), "schedule" (days and times). */
+  function can(trip, memberId, what) {
+    if (isOrganizer(trip, memberId)) return true;
+    if (what === "schedule") return !trip.locked;
+    return false;
+  }
+
+  /* Saved places grouped into named collections, most used first. */
+  function collections(places) {
+    const counts = {};
+    for (const place of live(places)) {
+      const name = (place.list || "Saved").trim() || "Saved";
+      counts[name] = (counts[name] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+  }
+
+  /* Stable text of a trip, used to tell whether a merge changed anything. */
+  const canonical = (trip) => JSON.stringify(mergeTrip(trip, trip));
 
   /* Share link payload: the whole trip, compressed. No server involved. */
   const toBase64Url = (bytes) => {
@@ -316,6 +345,6 @@
   return {
     uid, live, minutes, clock, blockOf, decimals, toMinor, fromMinor, money, allocate, expenseParts, inTripCurrency,
     balances, settle, spent, isoDate, parseDate, addDays, dayList, gaps, mergeTrip, packTrip, unpackTrip, history,
-    toICS, parseReceipt,
+    toICS, parseReceipt, organizers, isOrganizer, can, collections, canonical,
   };
 });

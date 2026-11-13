@@ -1,6 +1,6 @@
 {
   "base": "local",
-  "date": "2026-11-13T15:57:20",
+  "date": "2026-11-13T18:45:02",
   "passed": 9,
   "of": 9,
   "gates": {
@@ -13,31 +13,31 @@
     "G3": {
       "name": "no horizontal overflow at 320-1440",
       "pass": true,
-      "checks": 121,
+      "checks": 129,
       "failures": []
     },
     "G4": {
       "name": "WCAG AA contrast, light and dark",
       "pass": true,
-      "checks": 121,
+      "checks": 129,
       "failures": []
     },
     "G5": {
       "name": "tap targets >= 44 px on phone",
       "pass": true,
-      "checks": 46,
+      "checks": 49,
       "failures": []
     },
     "G6": {
       "name": "no text under 12 px",
       "pass": true,
-      "checks": 121,
+      "checks": 129,
       "failures": []
     },
     "G7": {
       "name": "one h1 + title + viewport on every view",
       "pass": true,
-      "checks": 121,
+      "checks": 129,
       "failures": []
     },
     "G8": {

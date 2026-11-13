@@ -1,0 +1,123 @@
+# Free native builds of the same web app, on GitHub's free runners for public repositories.
+# Android: a signed APK anyone can install (or track with Obtainium).
+# iOS: an unsigned IPA for free sideloading (AltStore or Sideloadly with a free Apple ID).
+name: Native builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, e.g. v2.0.0"
+        required: true
+        default: "v2.0.0"
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Wrap the web app
+        working-directory: native
+        run: |
+          npm install --no-audit --no-fund
+          node prepare.mjs
+          npx cap add android
+          npx capacitor-assets generate --android --iconBackgroundColor '#b93a1e' --splashBackgroundColor '#f5f0e6' --splashBackgroundColorDark '#16140f'
+          npx cap sync android
+      - name: Version from the run number
+        working-directory: native/android
+        run: |
+          sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/" app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"${TAG#v}\"/" app/build.gradle
+          grep -E "versionCode|versionName" app/build.gradle
+      - name: Build
+        working-directory: native/android
+        run: ./gradlew assembleRelease --no-daemon
+      - name: Sign
+        working-directory: native/android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > release.p12
+          TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$TOOLS/zipalign" -p -f 4 app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
+          "$TOOLS/apksigner" sign --ks release.p12 --ks-type PKCS12 --ks-pass env:KEYSTORE_PASSWORD --out Tagalong.apk aligned.apk
+          "$TOOLS/apksigner" verify --print-certs Tagalong.apk
+          rm release.p12
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: native/android/Tagalong.apk
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wrap the web app
+        working-directory: native
+        run: |
+          npm install --no-audit --no-fund
+          node prepare.mjs
+          npx cap add ios
+          npx capacitor-assets generate --ios --splashBackgroundColor '#f5f0e6' --splashBackgroundColorDark '#16140f'
+          npx cap sync ios
+      - name: Camera and photo permission text (receipt scan)
+        working-directory: native/ios/App/App
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Take a photo of a receipt to split it. The photo is read on this phone and never uploaded.'" Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Pick a photo of a receipt or a cover photo for a trip. Nothing is uploaded.'" Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${TAG#v}" Info.plist || true
+      - name: Build without signing
+        working-directory: native/ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qry Tagalong-unsigned.ipa Payload
+          ls -la Tagalong-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: native/ios/App/Tagalong-unsigned.ipa
+
+  release:
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -R out
+          sha256sum out/android/Tagalong.apk out/ios/Tagalong-unsigned.ipa > out/SHA256SUMS.txt
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" out/android/Tagalong.apk out/ios/Tagalong-unsigned.ipa out/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" out/android/Tagalong.apk out/ios/Tagalong-unsigned.ipa out/SHA256SUMS.txt \
+              --title "Tagalong $TAG" --notes-file docs/release-notes.md
+          fi

@@ -4,7 +4,8 @@
   const C = window.Core;
   const WORLD = window.WORLD;
   const KEY = "tagalong.v1";
-  const TABS = ["plan", "ideas", "money", "group"];
+  const TABS = ["plan", "ideas", "places", "money", "group"];
+  const PUBLIC_URL = "https://juw12.github.io/tagalong/";
   const BLOCKS = [["morning", "Morning"], ["afternoon", "Afternoon"], ["evening", "Evening"]];
   const TRANSPORT = [["", "Not set"], ["flight", "Flight"], ["road", "Road trip"], ["train", "Train"], ["boat", "Boat"]];
   const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "SGD", "IDR", "MYR", "THB", "AUD", "CAD", "CNY", "HKD", "TWD", "KRW", "INR", "VND", "PHP", "CHF", "NZD", "AED"];
@@ -19,7 +20,7 @@
   const plural = (count, word) => count + " " + word + (count === 1 ? "" : "s");
 
   let state = load();
-  const ui = { day: {}, undo: null, link: "", draft: null, pending: null, timer: 0 };
+  const ui = { day: {}, list: {}, undo: null, link: "", draft: null, pending: null, timer: 0, mapBox: null, repaintLater: false };
 
   function load() {
     const fresh = { trips: [], mine: {}, name: "", theme: "auto", currency: "USD" };
@@ -41,6 +42,7 @@
     change();
     save();
     render();
+    syncRooms();
     if (undoText) {
       toast(undoText, () => {
         state.trips = JSON.parse(before);
@@ -57,6 +59,8 @@
   const people = (trip) => C.live(trip.members);
   const nameOf = (trip, id) => (trip.members.find((member) => member.id === id) || { name: "Someone" }).name;
   const me = (trip) => state.mine[trip.id];
+  const canPlan = (trip) => C.can(trip, me(trip), "schedule");
+  const isBoss = (trip) => C.isOrganizer(trip, me(trip));
   const youMark = (trip, member) => (member.id === me(trip) && member.name.toLowerCase() !== "you" ? " (you)" : "");
   const photo = (trip) => localStorage.getItem("tagalong.photo." + trip.id) || "";
 
@@ -193,6 +197,7 @@
             <li><span>Settle</span><b data-preview="settle">Sam pays You ${C.money(23255, "JPY")}</b><i>3 payments clear everyone</i></li>
           </ol>
           <span class="stamp ticket-stamp" aria-hidden="true"><strong>Japan</strong><span>Next up</span></span>
+          <button class="ticket-open" data-act="open-sample" aria-label="Open the sample trip">Open this trip ${ARROW_ICON}</button>
         </figure>
         <ol class="steps">
           <li><strong>Plan</strong> each day by the clock or just morning, afternoon, evening.</li>
@@ -217,13 +222,19 @@
 
   function viewTrip(trip, tab) {
     const ideas = C.live(trip.events).filter((event) => !event.day).length;
-    const labels = { plan: "Plan", ideas: "Ideas" + (ideas ? " (" + ideas + ")" : ""), money: "Money", group: "Group" };
+    const saved = C.live(trip.places).length;
+    const labels = { plan: "Plan", ideas: "Ideas" + (ideas ? " (" + ideas + ")" : ""), places: "Places" + (saved ? " (" + saved + ")" : ""), money: "Money", group: "Group" };
     const image = photo(trip);
-    const views = { plan: viewPlan, ideas: viewIdeas, money: viewMoney, group: viewGroup };
+    const views = { plan: viewPlan, ideas: viewIdeas, places: viewPlaces, money: viewMoney, group: viewGroup };
     return `<div class="trip-head${image ? " has-photo" : ""}"${image ? ` style="background-image:linear-gradient(rgba(20,18,14,.35),rgba(20,18,14,.78)),url(${image})"` : ""}>
         <p class="eyebrow">${esc(statusOf(trip))}</p>
         <h1>${esc(trip.name)}</h1>
         <p class="sub">${esc([fmtRange(trip), placeOf(trip), plural(people(trip).length, "person").replace("persons", "people")].filter(Boolean).join(" · "))}</p>
+        <div class="trip-actions">
+          <button class="btn small invite" data-act="invite">Invite</button>
+          ${trip.live && trip.live.key ? `<span class="live-pill" data-live-status="${trip.id}">${esc(liveText(trip))}</span>` : ""}
+          ${trip.locked ? `<span class="live-pill">Plan locked</span>` : ""}
+        </div>
       </div>
       <nav class="tabs" aria-label="Trip sections">
         ${TABS.map((name) => `<a href="#/t/${trip.id}/${name}"${name === tab ? ' aria-current="page"' : ""}${name === "ideas" ? ' data-drop-day=""' : ""}>${labels[name]}</a>`).join("")}
@@ -235,7 +246,7 @@
     const linked = C.live(trip.expenses).filter((expense) => expense.eventId === event.id);
     const cost = linked.reduce((sum, expense) => sum + C.inTripCurrency(expense, trip).total, 0);
     const detail = [event.place, event.note].filter(Boolean).join(" · ");
-    return `<article class="event" draggable="true" data-event="${event.id}">
+    return `<article class="event" draggable="${canPlan(trip)}" data-event="${event.id}">
       <button class="event-main" data-act="edit-event" data-id="${event.id}" aria-label="Edit ${esc(event.title)}">
         ${showTime && event.time ? `<span class="when">${event.time}<small>${fmtDuration(Number(event.dur) || 60)}</small></span>` : ""}
         <span class="what"><strong>${esc(event.title)}</strong>${detail ? `<small>${esc(detail)}</small>` : ""}${linked.length ? `<small class="cost">${C.money(cost, trip.currency)} logged</small>` : ""}</span>
@@ -253,6 +264,7 @@
     const all = C.live(trip.events);
     const here = all.filter((event) => event.day === day).sort((a, b) => (a.time || "99") < (b.time || "99") ? -1 : (a.time || "99") > (b.time || "99") ? 1 : (a.c || 0) - (b.c || 0));
     const byClock = (trip.dayModes || {})[day] === "clock";
+    const open = canPlan(trip);
     const strip = days.map((iso, index) => {
       const date = C.parseDate(iso);
       const count = all.filter((event) => event.day === iso).length;
@@ -264,7 +276,7 @@
     let body;
     if (byClock) {
       const rows = here.filter((event) => event.time).map((event) => ({ at: C.minutes(event.time), html: eventRow(trip, event, true) }));
-      for (const gap of C.gaps(here)) {
+      for (const gap of open ? C.gaps(here) : []) {
         rows.push({
           at: gap.from - 0.5,
           html: `<button class="gap" data-act="add-event" data-day="${day}" data-time="${C.clock(gap.from)}">
@@ -280,18 +292,19 @@
         return `<section class="block" data-drop-day="${day}" data-drop-block="${key}">
           <h3 class="block-title">${label}</h3>
           ${inBlock.map((event) => eventRow(trip, event, true)).join("") || `<p class="hollow">Nothing yet</p>`}
-          <button class="btn ghost" data-act="add-event" data-day="${day}" data-block="${key}" aria-label="Add to ${label.toLowerCase()}">Add</button>
+          ${open ? `<button class="btn ghost" data-act="add-event" data-day="${day}" data-block="${key}" aria-label="Add to ${label.toLowerCase()}">Add</button>` : ""}
         </section>`;
       }).join("")}</div>`;
     }
     return `<div class="days-wrap"><div class="days">${strip}</div><button class="days-more" data-act="days-next" aria-label="Show later days" hidden>${ARROW_ICON}</button></div>
       <div class="day-head">
         <h2>${esc(fmtDay(day, true))}</h2>
-        <div class="seg" role="group" aria-label="How to lay out this day">
+        ${open ? `<div class="seg" role="group" aria-label="How to lay out this day">
           <button data-act="mode" data-mode="" aria-pressed="${!byClock}">Loose</button>
           <button data-act="mode" data-mode="clock" aria-pressed="${byClock}">By the clock</button>
-        </div>
+        </div>` : ""}
       </div>
+      ${open ? "" : `<p class="note">The organizers locked the plan. You can still add ideas, vote, save places and log expenses.</p>`}
       ${body}`;
   }
 
@@ -302,11 +315,11 @@
       const voters = votesOf(event);
       const mine = voters.includes(me(trip));
       const detail = [event.place, event.note].filter(Boolean).join(" · ");
-      return `<article class="idea" draggable="true" data-event="${event.id}">
+      return `<article class="idea" draggable="${canPlan(trip)}" data-event="${event.id}">
         <button class="vote" data-act="vote" data-id="${event.id}" aria-pressed="${mine}" aria-label="${mine ? "Remove your vote for" : "Vote for"} ${esc(event.title)}, ${plural(voters.length, "vote")}"><span aria-hidden="true">&#9650;</span><b>${voters.length}</b></button>
         <div class="what"><strong>${esc(event.title)}</strong>${detail ? `<small>${esc(detail)}</small>` : ""}
           <small>${voters.length ? esc(voters.map((id) => nameOf(trip, id)).join(", ")) + (voters.length === 1 && nameOf(trip, voters[0]).toLowerCase() !== "you" ? " wants this" : " want this") : "No votes yet"}</small></div>
-        <button class="btn small" data-act="edit-event" data-id="${event.id}" aria-label="Schedule ${esc(event.title)}">Schedule</button>
+        <button class="btn small" data-act="edit-event" data-id="${event.id}" aria-label="${canPlan(trip) ? "Schedule" : "Details of"} ${esc(event.title)}">${canPlan(trip) ? "Schedule" : "Details"}</button>
       </article>`;
     }).join("");
     return `<form class="quick" data-form="quick-idea">
@@ -379,47 +392,104 @@
   }
 
   function viewGroup(trip) {
-    const members = people(trip).map((member) => `<li>
-        <span>${esc(member.name)}${youMark(trip, member)}</span>
-        <span class="row">
-          <button class="btn small" data-act="rename-member" data-id="${member.id}" aria-label="Rename ${esc(member.name)}">Rename</button>
-          <button class="btn small" data-act="remove-member" data-id="${member.id}" aria-label="Remove ${esc(member.name)}">Remove</button>
-        </span>
-      </li>`).join("");
+    const mine = me(trip);
+    const boss = isBoss(trip);
+    const named = trip.members.some((member) => !member.x && member.role === "organizer");
+    const organizers = C.organizers(trip);
+    const members = people(trip).map((member) => {
+      const leads = named && organizers.includes(member.id);
+      const self = member.id === mine;
+      const buttons = [];
+      if (boss || self) buttons.push(`<button class="btn small" data-act="rename-member" data-id="${member.id}" aria-label="Rename ${esc(member.name)}">Rename</button>`);
+      if (boss && !self) {
+        buttons.push(leads
+          ? `<button class="btn small" data-act="set-role" data-id="${member.id}" data-role="member" aria-label="Make ${esc(member.name)} a member">Make member</button>`
+          : `<button class="btn small" data-act="set-role" data-id="${member.id}" data-role="organizer" aria-label="Make ${esc(member.name)} an organizer">Make organizer</button>`);
+        buttons.push(`<button class="btn small" data-act="remove-member" data-id="${member.id}" aria-label="Remove ${esc(member.name)}">Remove</button>`);
+      }
+      return `<li>
+        <span>${esc(member.name)}${youMark(trip, member)}${leads ? ` <span class="role">Organizer</span>` : ""}</span>
+        <span class="row">${buttons.join("")}</span>
+      </li>`;
+    }).join("");
+    const liveOn = Boolean(trip.live && trip.live.key);
+    const status = rooms[trip.id] ? rooms[trip.id].status : null;
+    const heard = rooms[trip.id] && rooms[trip.id].heard;
     return `<div class="group-grid">
       <div class="panel">
         <h2 class="section-title">Invite the group</h2>
-        <p class="note">The link carries the whole trip. Whoever opens it gets their own copy, offline included. To sync up later, send a fresh link: opening it merges both sides and keeps the newest edit of everything.</p>
+        <p class="note">The link carries the whole trip. Whoever opens it gets their own copy, offline included.${liveOn ? " Live sync is on, so their copy stays in step with yours." : " To sync up later, send a fresh link: opening it merges both sides and keeps the newest edit of everything."}</p>
         <div class="row">
-          <button class="btn primary" data-act="share">Copy invite link</button>
+          <button class="btn primary" data-act="share">Invite link</button>
           <button class="btn" data-act="ics">Add to calendar</button>
         </div>
-        ${ui.link ? `<label class="field">Link (copied)<input id="invite-link" readonly value="${esc(ui.link)}"></label>` : ""}
         <form class="quick" data-form="merge-link">
           <input name="link" required placeholder="Paste a link someone sent you" aria-label="Link to merge">
           <button class="btn">Merge</button>
         </form>
       </div>
       <div class="panel">
+        <h2 class="section-title">Live sync</h2>
+        ${liveOn
+          ? `<p class="note"><b data-live-status="${trip.id}">${esc(liveText(trip))}</b>${status ? ` · ${status.up} of ${status.total} relays` : ""}${heard ? ` · last change from the group at ${new Date(heard).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
+             <p class="note">Changes reach everyone who opened an invite link, within seconds while they are online and the next time they open the app if not. Everything is locked with a key that only exists inside your invite links; the free public relays that pass it on see scrambled bytes.</p>
+             ${boss ? `<button class="btn" data-act="live-off">Turn live sync off</button>` : ""}`
+          : `<p class="note">Off. Turn it on and every change reaches the group within seconds, no account needed. It uses free public relays, end-to-end encrypted with a key that only travels inside your invite links.</p>
+             ${boss ? `<button class="btn primary" data-act="live-on">Turn on live sync</button>` : `<p class="note">An organizer can turn it on.</p>`}`}
+      </div>
+      <div class="panel">
         <h2 class="section-title">People</h2>
         <label class="field">You are
-          <select data-change="me">${options(people(trip).map((member) => [member.id, member.name]), me(trip))}</select>
+          <select data-change="me">${options(people(trip).map((member) => [member.id, member.name]), mine)}</select>
         </label>
         <ul class="members">${members}</ul>
         <form class="quick" data-form="add-member">
           <input name="name" required maxlength="40" placeholder="Add someone by name" aria-label="New person's name">
           <button class="btn">Add</button>
         </form>
+        <p class="note small">Organizers edit the trip, people and roles, and can lock the plan. Roles are kept by the app on every copy; they are not a password.</p>
       </div>
       <div class="panel">
         <h2 class="section-title">This trip</h2>
+        ${boss ? `<label class="check switch"><input type="checkbox" data-change="lock"${trip.locked ? " checked" : ""}>Lock the plan: only organizers change days and times. Everyone can still add ideas, vote and log expenses.</label>` : trip.locked ? `<p class="note">The organizers locked the plan.</p>` : ""}
         <div class="row">
-          <button class="btn" data-act="edit-trip">Edit details</button>
+          ${C.can(trip, mine, "trip") ? `<button class="btn" data-act="edit-trip">Edit details</button>` : ""}
           <label class="btn file">Cover photo<input type="file" accept="image/*" data-change="photo"></label>
-          <button class="btn danger" data-act="delete-trip">Delete trip</button>
+          <button class="btn danger" data-act="delete-trip">${boss ? "Delete trip" : "Remove from this device"}</button>
         </div>
       </div>
     </div>`;
+  }
+
+  /* ---------- places ---------- */
+
+  function viewPlaces(trip) {
+    const places = C.live(trip.places).sort((a, b) => (b.c || 0) - (a.c || 0));
+    const lists = C.collections(trip.places);
+    const filter = lists.some(([name]) => name === ui.list[trip.id]) ? ui.list[trip.id] : "";
+    const listOf = (place) => (place.list || "Saved").trim() || "Saved";
+    const shown = places.filter((place) => !filter || listOf(place) === filter);
+    const planned = new Set(C.live(trip.events).map((event) => event.placeId).filter(Boolean));
+    const chips = lists.length > 1
+      ? `<div class="lists" role="group" aria-label="Collections">${[["", "All", places.length]].concat(lists.map(([name, count]) => [name, name, count])).map(([value, label, count]) =>
+          `<button data-act="list" data-list="${esc(value)}" aria-pressed="${value === filter}">${esc(label)} <b>${count}</b></button>`).join("")}</div>`
+      : "";
+    const rows = shown.map((place) => {
+      const detail = [listOf(place), place.address].filter(Boolean).join(" · ");
+      return `<article class="event place">
+        <button class="event-main" data-act="edit-place" data-id="${place.id}" aria-label="Edit ${esc(place.name)}">
+          <span class="what"><strong>${esc(place.name)}</strong><small>${esc(detail)}</small>${place.note ? `<small>${esc(place.note)}</small>` : ""}</span>
+        </button>
+        <a class="map" href="${mapsLink(place.address || place.name)}" target="_blank" rel="noopener" aria-label="Open ${esc(place.name)} in Google Maps">Map</a>
+        ${planned.has(place.id) ? `<span class="tagline">In ideas</span>` : `<button class="btn small" data-act="place-idea" data-id="${place.id}" aria-label="Add ${esc(place.name)} to ideas">To ideas</button>`}
+      </article>`;
+    }).join("");
+    return `<div class="money-top">
+        <p class="note">Save places as you find them and sort them into collections: food, sights, a friend's tips. One tap turns a place into an idea the group can vote on.</p>
+        <button class="btn primary" data-act="add-place">Save a place</button>
+      </div>
+      ${chips}
+      ${rows || `<p class="note">No places yet. Save the ramen shop someone mentioned, the lookout from that video, the hotel shortlist.</p>`}`;
   }
 
   /* ---------- passport ---------- */
@@ -437,6 +507,7 @@
     }
     const box = zoomBox(new Set([...been, ...next]));
     const zoomed = Boolean(box) && (ui.zoom == null ? matchMedia("(max-width: 599px)").matches : ui.zoom);
+    const viewBox = ui.mapBox || (zoomed ? box : `0 0 ${WORLD.w} ${WORLD.h}`);
     const figures = [
       [stats.countries.length, "Countries"], [stats.cities, "Cities"], [stats.trips, "Trips"], [stats.days, "Days away"],
       [stats.returnVisits, "Return visits"], [stats.flights, "Flights"], [stats.roadTrips, "Road trips"],
@@ -453,10 +524,14 @@
       </div>
       <dl class="figures">${figures.map(([value, label]) => `<div><dd>${value}</dd><dt>${label}</dt></div>`).join("")}</dl>
       <figure class="map-wrap">
-        <svg class="world" viewBox="${zoomed ? box : `0 0 ${WORLD.w} ${WORLD.h}`}" role="img" aria-label="World map with ${plural(stats.countries.length, "country").replace("countrys", "countries")} visited">${shapes.join("")}${dots.join("")}</svg>
+        <svg class="world" viewBox="${viewBox}" tabindex="0" role="img" aria-label="World map with ${plural(stats.countries.length, "country").replace("countrys", "countries")} visited. Drag to move, pinch or use the plus and minus keys to zoom.">${shapes.join("")}${dots.join("")}</svg>
+        <div class="map-tools" role="group" aria-label="Map zoom">
+          <button class="icon-btn" data-act="map-in" aria-label="Zoom in">+</button>
+          <button class="icon-btn" data-act="map-out" aria-label="Zoom out">&minus;</button>
+        </div>
         <figcaption>
           <span><span class="key been"></span>Been there <span class="key next"></span>Planned</span>
-          ${box ? `<button class="link" data-act="map-zoom" data-zoom="${zoomed ? 0 : 1}">${zoomed ? "Whole world" : "Zoom to my trips"}</button>` : ""}
+          ${box ? `<button class="link" data-act="map-zoom" data-zoom="${zoomed && !ui.mapBox ? 0 : 1}">${zoomed && !ui.mapBox ? "Whole world" : "Zoom to my trips"}</button>` : `<button class="link" data-act="map-zoom" data-zoom="0">Whole world</button>`}
         </figcaption>
       </figure>
       ${stamps
@@ -477,13 +552,14 @@
 
   /* ---------- sheets (dialogs) ---------- */
 
-  function openSheet(title, body, form, footer) {
+  function openSheet(title, body, form, footer, settings) {
+    const withSave = !(settings && settings.save === false);
     const sheet = $("#sheet");
     sheet.innerHTML = `<form data-form="${form}" novalidate>
       <header><h2 id="sheet-title">${esc(title)}</h2><button type="button" class="icon-btn" data-act="close" aria-label="Close">Close</button></header>
       <div class="sheet-body">${body}</div>
       <p class="form-error" role="alert" hidden></p>
-      <footer>${footer || ""}<button class="btn primary">Save</button></footer>
+      <footer>${footer || ""}${withSave ? `<button class="btn primary">Save</button>` : ""}</footer>
     </form>`;
     if (!sheet.open) sheet.showModal();
   }
@@ -526,15 +602,21 @@
     const days = C.dayList(trip.start, trip.end).map((iso, index) => [iso, "Day " + (index + 1) + " · " + fmtDay(iso, true)]);
     const durations = [30, 60, 90, 120, 180, 240, 360].map((mins) => [String(mins), fmtDuration(mins)]);
     ui.draft = { tripId: trip.id, id: event && event.id };
-    openSheet(isNew ? "Add to the plan" : "Edit", `
-      ${field("What", `<input name="title" required maxlength="80" value="${esc(draft.title)}" placeholder="Breakfast at the fish market">`)}
-      ${field("When", `<select name="day">${options([["", "Not scheduled (keep under Ideas)"]].concat(days), draft.day || "")}</select>`)}
+    const locked = !canPlan(trip);
+    const readOnly = locked && !isNew && Boolean(draft.day);
+    const timing = `${field("When", `<select name="day">${options([["", "Not scheduled (keep under Ideas)"]].concat(days), draft.day || "")}</select>`)}
       <div class="pair three">${field("Part of day", `<select name="block">${options(BLOCKS, draft.time ? C.blockOf(draft.time) : draft.block || "morning")}</select>`)}
         ${field("Start time (optional)", `<input type="time" name="time" value="${draft.time || ""}">`)}
-        ${field("Lasts", `<select name="dur">${options(durations, String(draft.dur || 60))}</select>`)}</div>
+        ${field("Lasts", `<select name="dur">${options(durations, String(draft.dur || 60))}</select>`)}</div>`;
+    openSheet(readOnly ? draft.title : isNew ? "Add to the plan" : "Edit", `
+      ${locked ? `<p class="note">The organizers locked the plan, so only they change days and times.</p>` : ""}
+      <fieldset class="plain"${readOnly ? " disabled" : ""}>
+      ${field("What", `<input name="title" required maxlength="80" value="${esc(draft.title)}" placeholder="Breakfast at the fish market">`)}
+      ${locked ? `<fieldset class="plain" disabled>${timing}</fieldset>` : timing}
       ${field("Place", `<input name="place" maxlength="120" value="${esc(draft.place)}" placeholder="Name or address, opens in Google Maps">`)}
-      ${field("Note", `<textarea name="note" rows="2" maxlength="300">${esc(draft.note)}</textarea>`)}`,
-      "event", isNew ? "" : `<button type="button" class="btn danger" data-act="delete-event">Delete</button>`);
+      ${field("Note", `<textarea name="note" rows="2" maxlength="300">${esc(draft.note)}</textarea>`)}
+      </fieldset>`,
+      "event", isNew || locked ? "" : `<button type="button" class="btn danger" data-act="delete-event">Delete</button>`, { save: !readOnly });
   }
 
   function expenseBody(trip, draft) {
@@ -552,7 +634,11 @@
           <div class="checks">${checks("item-who-" + index, item.who)}</div></div>`).join("")}
         <button type="button" class="btn small" data-act="add-item">Add item</button>
         <div class="pair">${field("Tax", `<input name="tax" type="number" inputmode="decimal" min="0" step="any" value="${esc(draft.tax)}">`)}${field("Tip or service", `<input name="tip" type="number" inputmode="decimal" min="0" step="any" value="${esc(draft.tip)}">`)}</div>
-        <details><summary>Paste a receipt instead</summary>
+        <div class="row scan-row">
+          <label class="btn small file">Scan a receipt<input type="file" accept="image/*" data-change="scan" aria-label="Scan a receipt photo"></label>
+          <span class="scan-status note" role="status">${esc(draft.scanNote || "")}</span>
+        </div>
+        <details${draft.receipt ? " open" : ""}><summary>Paste or check the receipt text</summary>
           ${field("One line per item, price at the end", `<textarea name="receipt" rows="4" placeholder="Ramen 12.50&#10;Gyoza 9&#10;Service 10%? Type the amount: Service 2.15">${esc(draft.receipt)}</textarea>`)}
           <button type="button" class="btn small" data-act="parse-receipt">Turn lines into items</button></details>
       </fieldset>`;
@@ -610,6 +696,32 @@
     $("#sheet .sheet-body").innerHTML = expenseBody(trip, draft);
   }
 
+  const inviteBase = () => (window.Capacitor || location.protocol === "capacitor:" ? PUBLIC_URL : location.origin + location.pathname);
+  async function inviteSheet(trip) {
+    ui.link = inviteBase() + "#join=" + (await C.packTrip(trip));
+    const liveOn = Boolean(trip.live && trip.live.key);
+    openSheet("Invite to " + trip.name, `
+      <p class="note">The link carries the whole trip${liveOn ? " and its live sync key, so everyone who opens it stays in step with you" : ""}. Anyone with the link can join, so send it only to the group.</p>
+      <label class="field">Invite link<input id="invite-link" readonly value="${esc(ui.link)}"></label>
+      <p class="copy-state note" role="status"></p>`, "invite",
+      `${navigator.share ? `<button type="button" class="btn" data-act="native-share">Share</button>` : ""}<button type="button" class="btn primary" data-act="copy-link">Copy link</button>`, { save: false });
+    const input = $("#invite-link");
+    input.focus();
+    input.select();
+  }
+
+  function placeSheet(trip, place) {
+    const draft = place || { name: "", list: ui.list[trip.id] || "", address: "", note: "" };
+    ui.draft = { tripId: trip.id, id: place && place.id };
+    const lists = C.collections(trip.places).map(([name]) => `<option value="${esc(name)}"></option>`).join("");
+    openSheet(place ? "Edit place" : "Save a place", `
+      ${field("Name", `<input name="name" required maxlength="80" value="${esc(draft.name)}" placeholder="Afuri ramen">`)}
+      ${field("Collection", `<input name="list" maxlength="40" list="place-lists" value="${esc(draft.list)}" placeholder="Food, Sights, Mei's tips"><datalist id="place-lists">${lists}</datalist>`)}
+      ${field("Address or map link", `<input name="address" maxlength="200" value="${esc(draft.address)}" placeholder="Opens in Google Maps">`)}
+      ${field("Note", `<textarea name="note" rows="2" maxlength="300">${esc(draft.note)}</textarea>`)}`,
+      "place", place ? `<button type="button" class="btn danger" data-act="delete-place">Delete</button>` : "");
+  }
+
   /* ---------- form handlers ---------- */
 
   const forms = {
@@ -631,6 +743,7 @@
         const myName = String(data.get("me")).trim() || "Me";
         const names = [myName].concat(String(data.get("others")).split(/[,\n]/).map((text) => text.trim()).filter(Boolean));
         const members = names.map((memberName, index) => ({ id: C.uid(), name: memberName, c: Date.now() + index, u: Date.now() }));
+        members[0].role = "organizer";
         target = C.uid();
         state.name = myName;
         state.mine[target] = members[0].id;
@@ -643,9 +756,11 @@
       const trip = findTrip(ui.draft.tripId);
       const title = String(data.get("title")).trim();
       if (!title) return formError("Say what it is.");
-      const time = data.get("time");
-      const fields = { title, day: data.get("day"), time, block: time ? C.blockOf(time) : data.get("block"), dur: Number(data.get("dur")), place: String(data.get("place")).trim(), note: String(data.get("note")).trim() };
       const id = ui.draft.id;
+      const fields = { title, place: String(data.get("place")).trim(), note: String(data.get("note")).trim() };
+      const time = data.has("day") ? data.get("time") : "";
+      if (data.has("day")) Object.assign(fields, { day: data.get("day"), time, block: time ? C.blockOf(time) : data.get("block"), dur: Number(data.get("dur")) });
+      else if (!id) Object.assign(fields, { day: "", time: "", block: "morning", dur: 60 });
       mutate(() => {
         if (id) Object.assign(stamp(trip.events.find((event) => event.id === id)), fields);
         else trip.events.push(stamp({ id: C.uid(), c: Date.now(), votes: {}, ...fields }));
@@ -709,7 +824,8 @@
       save();
       location.hash = "#/t/" + trip.id + "/plan";
       render();
-      toast("You're in. Changes you make stay on this device until you send a link back.");
+      syncRooms();
+      toast(trip.live && trip.live.key ? "You're in. Live sync is on, so your changes reach the group." : "You're in. Changes you make stay on this device until you send a link back.");
       return true;
     },
     "quick-idea"(data, form) {
@@ -720,6 +836,20 @@
     "add-member"(data) {
       const trip = route().trip;
       mutate(() => trip.members.push(stamp({ id: C.uid(), c: Date.now(), name: String(data.get("name")).trim() })));
+    },
+    invite: () => true,
+    place(data) {
+      const trip = findTrip(ui.draft.tripId);
+      const name = String(data.get("name")).trim();
+      if (!name) return formError("Give the place a name.");
+      const fields = { name, list: String(data.get("list")).trim() || "Saved", address: String(data.get("address")).trim(), note: String(data.get("note")).trim() };
+      const id = ui.draft.id;
+      mutate(() => {
+        trip.places = trip.places || [];
+        if (id) Object.assign(stamp(trip.places.find((place) => place.id === id)), fields);
+        else trip.places.push(stamp({ id: C.uid(), c: Date.now(), ...fields }));
+      });
+      return true;
     },
     "merge-link"(data) {
       const payload = String(data.get("link")).split("join=")[1];
@@ -745,13 +875,18 @@
     },
     "new-trip": () => tripSheet(null, false),
     "past-trip": () => tripSheet(null, true),
-    "edit-trip": () => tripSheet(route().trip),
+    "edit-trip"() {
+      const trip = route().trip;
+      if (!C.can(trip, me(trip), "trip")) return toast("Only organizers edit the trip details.");
+      tripSheet(trip);
+    },
     "add-stop": () => $("#stops").insertAdjacentHTML("beforeend", stopRow({})),
     sample() {
       const made = sampleTrips();
       mutate(() => state.trips.push(...made));
       location.hash = "#/t/" + made[0].id + "/plan";
     },
+    "open-sample": () => actions.sample(),
     "clear-sample": () => mutate(() => (state.trips = state.trips.filter((trip) => !trip.sample)), "Sample trips removed."),
     "delete-trip"() {
       const trip = route().trip;
@@ -765,6 +900,7 @@
     },
     "map-zoom"(el) {
       ui.zoom = el.dataset.zoom === "1";
+      ui.mapBox = null;
       render();
       const again = $('[data-act="map-zoom"]');
       if (again) again.focus();
@@ -777,6 +913,7 @@
     },
     mode(el) {
       const trip = route().trip;
+      if (!canPlan(trip)) return toast("The organizers locked the plan.");
       mutate(() => {
         trip.dayModes = { ...(trip.dayModes || {}), [ui.day[trip.id]]: el.dataset.mode };
         stamp(trip);
@@ -819,13 +956,7 @@
     split: (el) => redrawExpense((draft) => (draft.split = el.dataset.split)),
     "add-item": () => redrawExpense((draft, trip) => draft.items.push({ name: "", amount: "", who: people(trip).map((member) => member.id) })),
     "parse-receipt": () => redrawExpense((draft, trip) => {
-      const parsed = C.parseReceipt(draft.receipt);
-      if (!parsed.items.length) return;
-      const everyone = people(trip).map((member) => member.id);
-      draft.items = parsed.items.map((item) => ({ ...item, who: everyone }));
-      draft.tax = parsed.tax || "";
-      draft.tip = parsed.tip || "";
-      draft.receipt = "";
+      if (applyReceipt(draft, trip)) draft.receipt = "";
     }),
     "mark-paid"(el) {
       const trip = route().trip;
@@ -835,32 +966,102 @@
     "rename-member"(el) {
       const trip = route().trip;
       const member = trip.members.find((item) => item.id === el.dataset.id);
+      if (!isBoss(trip) && member.id !== me(trip)) return toast("Only organizers rename other people.");
       const name = (prompt("New name for " + member.name, member.name) || "").trim();
       if (name) mutate(() => (stamp(member).name = name));
     },
     "remove-member"(el) {
       const trip = route().trip;
       const member = trip.members.find((item) => item.id === el.dataset.id);
+      if (!isBoss(trip)) return toast("Only organizers remove people.");
+      if (C.organizers(trip).length === 1 && C.organizers(trip)[0] === member.id) return toast("Make someone else an organizer first.");
       const used = C.live(trip.expenses).some((expense) => JSON.stringify(expense).includes(member.id));
       if (used) return toast(member.name + " is part of an expense, so they stay in the group. Settle up first.");
       if (people(trip).length < 2) return toast("A trip needs at least one person.");
       mutate(() => (stamp(member).x = true), "Removed " + member.name + ".");
     },
-    async share() {
-      const trip = route().trip;
-      ui.link = location.origin + location.pathname + "#join=" + (await C.packTrip(trip));
+    invite: () => inviteSheet(route().trip),
+    share: () => inviteSheet(route().trip),
+    async "copy-link"() {
+      const input = $("#invite-link");
+      const status = $("#sheet .copy-state");
       let copied = true;
       try {
-        await navigator.clipboard.writeText(ui.link);
+        await navigator.clipboard.writeText(input.value);
       } catch (error) {
         copied = false;
       }
-      render();
-      const input = $("#invite-link");
       input.focus();
       input.select();
-      toast(copied ? "Invite link copied. Paste it in your group chat." : "Copy the link below and send it to your group.");
+      status.textContent = copied ? "Copied. Paste it in your group chat." : "Select the link above and copy it.";
     },
+    async "native-share"() {
+      const trip = findTrip(ui.draft && ui.draft.tripId) || route().trip;
+      try {
+        await navigator.share({ title: trip.name + " on Tagalong", text: "Join our trip plan: " + trip.name, url: $("#invite-link").value });
+      } catch (error) {}
+    },
+    "live-on"() {
+      const trip = route().trip;
+      if (!isBoss(trip)) return toast("Only organizers turn live sync on.");
+      if (!window.Live || !window.crypto || !crypto.subtle) return toast("This browser cannot do encrypted live sync. Invite links still work.");
+      mutate(() => {
+        trip.live = { key: Live.newKey() };
+        stamp(trip);
+      });
+      toast("Live sync is on. Send the group a fresh invite link so their copies join.");
+    },
+    "live-off"() {
+      const trip = route().trip;
+      if (!isBoss(trip)) return toast("Only organizers turn live sync off.");
+      mutate(() => {
+        trip.live = null;
+        stamp(trip);
+      });
+      toast("Live sync is off for everyone.");
+    },
+    "set-role"(el) {
+      const trip = route().trip;
+      const mine = me(trip);
+      if (!isBoss(trip)) return toast("Only organizers change roles.");
+      const target = trip.members.find((member) => member.id === el.dataset.id);
+      const promote = el.dataset.role === "organizer";
+      mutate(() => {
+        if (!trip.members.some((member) => !member.x && member.role === "organizer")) {
+          const self = trip.members.find((member) => member.id === mine);
+          if (self) stamp(self).role = "organizer";
+        }
+        stamp(target).role = promote ? "organizer" : "member";
+      }, promote ? target.name + " is now an organizer." : target.name + " is now a member.");
+    },
+    list(el) {
+      ui.list[route().trip.id] = el.dataset.list;
+      render();
+      const again = $('.lists [aria-pressed="true"]');
+      if (again) again.focus();
+    },
+    "add-place": () => placeSheet(route().trip),
+    "edit-place"(el) {
+      const trip = route().trip;
+      placeSheet(trip, trip.places.find((place) => place.id === el.dataset.id));
+    },
+    "delete-place"() {
+      const trip = findTrip(ui.draft.tripId);
+      const place = trip.places.find((item) => item.id === ui.draft.id);
+      closeSheet();
+      mutate(() => (stamp(place).x = true), "Deleted " + place.name + ".");
+    },
+    "place-idea"(el) {
+      const trip = route().trip;
+      const place = trip.places.find((item) => item.id === el.dataset.id);
+      mutate(() => trip.events.push(stamp({
+        id: C.uid(), c: Date.now(), title: place.name, day: "", block: "morning", time: "", dur: 60,
+        place: place.address || place.name, note: place.note || "", placeId: place.id,
+        votes: me(trip) ? { [me(trip)]: Date.now() } : {},
+      })), "Added " + place.name + " to Ideas.");
+    },
+    "map-in": () => zoomMap($("svg.world"), 0.7, 0.5, 0.5),
+    "map-out": () => zoomMap($("svg.world"), 1 / 0.7, 0.5, 0.5),
     ics() {
       const trip = route().trip;
       download(trip.name + ".ics", C.toICS(trip), "text/calendar");
@@ -875,6 +1076,36 @@
       render();
     },
     "expense-redraw": () => redrawExpense(),
+    lock(el) {
+      const trip = route().trip;
+      if (!isBoss(trip)) return;
+      mutate(() => {
+        trip.locked = el.checked;
+        stamp(trip);
+      }, el.checked ? "Plan locked. Only organizers change days and times." : "Plan unlocked.");
+    },
+    async scan(el) {
+      const file = el.files[0];
+      if (!file) return;
+      const say = (text) => {
+        const status = $("#sheet .scan-status");
+        if (status) status.textContent = text;
+      };
+      say("Reading the receipt on this device...");
+      try {
+        const text = await readReceipt(file, (percent) => say("Reading the receipt on this device... " + percent + "%"));
+        let found = 0;
+        redrawExpense((draft, trip) => {
+          draft.receipt = text.trim();
+          found = applyReceipt(draft, trip);
+          draft.scanNote = found
+            ? "Found " + plural(found, "item") + ". Check them against the receipt below."
+            : "No prices found. Check the text below and fix it, or type the lines.";
+        });
+      } catch (error) {
+        say("Could not read that photo. Try a sharp, flat, well-lit photo, or type the lines.");
+      }
+    },
     photo(el) {
       const trip = route().trip;
       const file = el.files[0];
@@ -917,6 +1148,254 @@
     },
   };
 
+  /* ---------- receipts: paste or scan ---------- */
+
+  function applyReceipt(draft, trip) {
+    const parsed = C.parseReceipt(draft.receipt);
+    if (!parsed.items.length) return 0;
+    const everyone = people(trip).map((member) => member.id);
+    draft.items = parsed.items.map((item) => ({ ...item, who: everyone }));
+    draft.tax = parsed.tax || "";
+    draft.tip = parsed.tip || "";
+    return parsed.items.length;
+  }
+
+  /* On-device OCR. The engine (Tesseract, Apache-2.0) ships with the app and loads only on the first scan. */
+  let ocrWorker = null;
+  let ocrProgress = () => {};
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error("could not load " + src));
+      document.head.appendChild(script);
+    });
+  }
+  async function readReceipt(file, progress) {
+    ocrProgress = progress;
+    if (!window.Tesseract) await loadScript("vendor/ocr/tesseract.min.js");
+    if (!ocrWorker) {
+      const here = (path) => new URL(path, location.href).href;
+      ocrWorker = await Tesseract.createWorker("eng", 1, {
+        workerPath: here("vendor/ocr/worker.min.js"),
+        corePath: here("vendor/ocr/"),
+        langPath: here("vendor/ocr/lang"),
+        workerBlobURL: false,
+        logger: (message) => {
+          if (message.status === "recognizing text") ocrProgress(Math.round(message.progress * 100));
+        },
+      });
+    }
+    const result = await ocrWorker.recognize(file);
+    return result.data.text;
+  }
+
+  /* ---------- live sync ---------- */
+
+  const rooms = {};
+  const relays = (() => {
+    const custom = new URLSearchParams(location.search).get("relay");
+    if (custom) return custom.split(",");
+    return window.Live ? Live.BROKERS : [];
+  })();
+  function liveText(trip) {
+    const entry = rooms[trip.id];
+    if (!entry) return "Live sync on";
+    return entry.status.up ? "Live" : navigator.onLine === false ? "Live, offline" : "Live, connecting";
+  }
+  function paintLive() {
+    for (const el of document.querySelectorAll("[data-live-status]")) {
+      const trip = findTrip(el.dataset.liveStatus);
+      if (trip) el.textContent = liveText(trip);
+    }
+  }
+  function syncRooms() {
+    if (!window.Live || !window.WebSocket || !window.crypto || !crypto.subtle) return;
+    const wanted = new Set();
+    for (const trip of state.trips) {
+      const key = trip.live && trip.live.key;
+      if (!key) continue;
+      wanted.add(trip.id);
+      let entry = rooms[trip.id];
+      if (entry && entry.key !== key) {
+        entry.room.stop();
+        entry = null;
+      }
+      if (!entry) {
+        const fresh = { key, sent: "", timer: 0, heard: 0, status: { up: 0, total: relays.length } };
+        fresh.room = Live.Room({
+          key,
+          brokers: relays,
+          onMessage: (bytes) => receive(trip.id, key, bytes),
+          onStatus: (status) => {
+            fresh.status = status;
+            paintLive();
+          },
+        });
+        entry = rooms[trip.id] = fresh;
+      }
+      queuePublish(trip.id);
+    }
+    for (const id of Object.keys(rooms)) {
+      if (wanted.has(id)) continue;
+      const entry = rooms[id];
+      delete rooms[id];
+      const trip = findTrip(id);
+      /* Tell the group that live sync was turned off, then leave. */
+      if (trip) {
+        C.packTrip(trip).then((packed) => Live.seal(entry.key, packed)).then((bytes) => entry.room.publish(bytes));
+        setTimeout(() => entry.room.stop(), 3000);
+      } else entry.room.stop();
+    }
+  }
+  function queuePublish(id) {
+    const entry = rooms[id];
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    entry.timer = setTimeout(() => publishNow(id), 400);
+  }
+  async function publishNow(id) {
+    const entry = rooms[id];
+    const trip = findTrip(id);
+    if (!entry || !trip) return;
+    const text = C.canonical(trip);
+    if (text === entry.sent) return;
+    entry.sent = text;
+    entry.room.publish(await Live.seal(entry.key, await C.packTrip(trip)));
+  }
+  async function receive(id, key, bytes) {
+    let incoming;
+    try {
+      incoming = await C.unpackTrip(await Live.unseal(key, bytes));
+    } catch (error) {
+      return;
+    }
+    const local = findTrip(id);
+    const entry = rooms[id];
+    if (!local || !entry || incoming.id !== id) return;
+    const before = C.canonical(local);
+    const merged = C.mergeTrip(local, incoming);
+    const after = C.canonical(merged);
+    if (after !== before) {
+      Object.assign(local, merged);
+      entry.heard = Date.now();
+      save();
+      repaint();
+      syncRooms();
+    }
+    if (after !== C.canonical(incoming)) queuePublish(id);
+    else entry.sent = after;
+  }
+  /* Re-draw after a live change, but never under someone's fingers while they type. */
+  function repaint() {
+    const active = document.activeElement;
+    const inApp = active && $("#app").contains(active);
+    if (inApp && /^(INPUT|TEXTAREA)$/.test(active.tagName) && active.value.trim()) {
+      ui.repaintLater = true;
+      return;
+    }
+    const form = inApp && active.closest("[data-form]");
+    const key = form && active.name ? '[data-form="' + form.dataset.form + '"] [name="' + active.name + '"]' : "";
+    render();
+    const again = key && $(key);
+    if (again) again.focus();
+  }
+
+  /* ---------- passport map: drag, pinch, ctrl+wheel, keys and buttons ---------- */
+
+  const pointers = new Map();
+  function mapBoxOf(svg) {
+    const box = svg.viewBox.baseVal;
+    return { x: box.x, y: box.y, w: box.width, h: box.height };
+  }
+  function setMapBox(svg, box) {
+    const ratio = box.h / box.w;
+    const w = Math.min(Math.max(box.w, 90), WORLD.w);
+    const h = w * ratio;
+    const centerX = box.x + box.w / 2;
+    const centerY = box.y + box.h / 2;
+    const x = Math.min(Math.max(centerX - w / 2, -w * 0.25), WORLD.w - w * 0.75);
+    const y = Math.min(Math.max(centerY - h / 2, -h * 0.25), WORLD.h - h * 0.75);
+    ui.mapBox = [x, y, w, h].map((value) => Math.round(value * 10) / 10).join(" ");
+    svg.setAttribute("viewBox", ui.mapBox);
+  }
+  function zoomMap(svg, factor, fx, fy) {
+    if (!svg) return;
+    const box = mapBoxOf(svg);
+    const w = box.w * factor;
+    const h = box.h * factor;
+    setMapBox(svg, { x: box.x + (box.w - w) * fx, y: box.y + (box.h - h) * fy, w, h });
+  }
+  function mapScale(svg) {
+    const rect = svg.getBoundingClientRect();
+    const box = mapBoxOf(svg);
+    return { rect, box, perPixel: Math.max(box.w / rect.width, box.h / rect.height) };
+  }
+  document.addEventListener("pointerdown", (event) => {
+    const svg = event.target.closest && event.target.closest("svg.world");
+    if (!svg) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    try {
+      svg.setPointerCapture(event.pointerId);
+    } catch (error) {}
+  });
+  document.addEventListener("pointermove", (event) => {
+    const svg = $("svg.world");
+    if (!svg || !pointers.has(event.pointerId)) return;
+    const previous = pointers.get(event.pointerId);
+    const { rect, box, perPixel } = mapScale(svg);
+    if (pointers.size === 1) {
+      setMapBox(svg, { x: box.x - (event.clientX - previous.x) * perPixel, y: box.y - (event.clientY - previous.y) * perPixel, w: box.w, h: box.h });
+    } else if (pointers.size === 2) {
+      const other = [...pointers].find(([id]) => id !== event.pointerId)[1];
+      const before = Math.hypot(previous.x - other.x, previous.y - other.y);
+      const after = Math.hypot(event.clientX - other.x, event.clientY - other.y);
+      if (before > 4 && after > 4) {
+        const fx = ((event.clientX + other.x) / 2 - rect.left) / rect.width;
+        const fy = ((event.clientY + other.y) / 2 - rect.top) / rect.height;
+        zoomMap(svg, before / after, fx, fy);
+      }
+    }
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  });
+  const lift = (event) => pointers.delete(event.pointerId);
+  document.addEventListener("pointerup", lift);
+  document.addEventListener("pointercancel", lift);
+  document.addEventListener("wheel", (event) => {
+    const svg = event.target.closest && event.target.closest("svg.world");
+    if (!svg || !(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    const rect = svg.getBoundingClientRect();
+    zoomMap(svg, Math.exp(Math.max(-0.5, Math.min(0.5, event.deltaY * 0.004))), (event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
+  }, { passive: false });
+  document.addEventListener("keydown", (event) => {
+    const svg = event.target.closest && event.target.closest("svg.world");
+    if (!svg) return;
+    const box = mapBoxOf(svg);
+    const step = { ArrowLeft: [-0.1, 0], ArrowRight: [0.1, 0], ArrowUp: [0, -0.1], ArrowDown: [0, 0.1] }[event.key];
+    if (step) {
+      event.preventDefault();
+      setMapBox(svg, { x: box.x + step[0] * box.w, y: box.y + step[1] * box.h, w: box.w, h: box.h });
+    } else if (event.key === "+" || event.key === "=") {
+      event.preventDefault();
+      zoomMap(svg, 0.7, 0.5, 0.5);
+    } else if (event.key === "-" || event.key === "_") {
+      event.preventDefault();
+      zoomMap(svg, 1 / 0.7, 0.5, 0.5);
+    }
+  });
+
+  /* Keep a toast off whatever the person is working with. */
+  function placeToast(box) {
+    box.classList.remove("top");
+    const focused = document.activeElement;
+    if (!focused || focused === document.body || box.contains(focused)) return;
+    const a = focused.getBoundingClientRect();
+    const b = box.getBoundingClientRect();
+    if (a.bottom > b.top && a.top < b.bottom && a.right > b.left && a.left < b.right) box.classList.add("top");
+  }
+
   /* ---------- helpers: join, toast, download, sample ---------- */
 
   async function join(payload) {
@@ -934,6 +1413,7 @@
       save();
       location.hash = "#/t/" + known.id + "/plan";
       render();
+      syncRooms();
       return toast("Merged the newest changes from that link.");
     }
     ui.pending = incoming;
@@ -952,6 +1432,7 @@
     const box = $("#toast");
     box.innerHTML = `<span>${esc(text)}</span>${undo ? '<button class="btn small" data-act="undo">Undo</button>' : ""}`;
     box.hidden = false;
+    placeToast(box);
     ui.undo = undo || null;
     clearTimeout(ui.timer);
     ui.timer = setTimeout(() => (box.hidden = true), undo ? 9000 : 5000);
@@ -971,7 +1452,8 @@
     const make = (name) => ({ id: C.uid(), name, c: tick++, u: 1 });
     const trip = (name, startOffset, length, stops, transport, names, currency) => {
       const members = names.map(make);
-      const record = { id: C.uid(), u: 1, sample: true, name, start: C.addDays(now, startOffset), end: C.addDays(now, startOffset + length - 1), stops, transport, currency, rates: {}, dayModes: {}, members, events: [], expenses: [] };
+      members[0].role = "organizer";
+      const record = { id: C.uid(), u: 1, sample: true, name, start: C.addDays(now, startOffset), end: C.addDays(now, startOffset + length - 1), stops, transport, currency, rates: {}, dayModes: {}, members, events: [], expenses: [], places: [] };
       state.mine[record.id] = members[0].id;
       return record;
     };
@@ -996,6 +1478,11 @@
     event({ title: "Ghibli Museum", day: "", place: "Ghibli Museum, Mitaka", votes: { [mei]: 3 } });
     event({ title: "Karaoke until the last train", day: "", votes: {} });
     const everyone = [you, mei, arif, sam];
+    const place = (name, list, address, note) => tokyo.places.push({ id: C.uid(), c: tick++, u: 1, name, list, address, note });
+    place("Afuri ramen", "Food", "Afuri Ebisu, Tokyo", "Yuzu shio ramen. Short queue before 11:00");
+    place("Fuunji", "Food", "Fuunji, Shinjuku", "Tsukemen. Cash only");
+    place("Golden Gai", "Night", "Golden Gai, Shinjuku", "Tiny bars, some charge a seat fee");
+    place("Yanaka Ginza", "Walks", "Yanaka Ginza, Tokyo", "Old shopping street, good on a Sunday");
     const expense = (fields) => tokyo.expenses.push({ id: C.uid(), c: tick++, u: 1, currency: "JPY", eventId: "", ...fields });
     expense({ title: "Apartment deposit", amount: 60000, paidBy: you, split: "even", among: everyone });
     expense({ title: "teamLab tickets", amount: 15200, paidBy: mei, split: "even", among: everyone, eventId: teamlab.id });
@@ -1066,6 +1553,7 @@
     event.preventDefault();
     const moved = current.trip.events.find((item) => item.id === event.dataTransfer.getData("text/plain"));
     if (!moved) return;
+    if (!canPlan(current.trip)) return void toast("The organizers locked the plan.");
     mutate(() => {
       moved.day = zone.dataset.dropDay;
       if (zone.dataset.dropBlock) {
@@ -1080,6 +1568,17 @@
     if (event.target.classList && event.target.classList.contains("days")) tuneDays(false);
   }, true);
   window.addEventListener("resize", () => tuneDays(false));
+  document.addEventListener("focusout", () => {
+    if (!ui.repaintLater) return;
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (active && $("#app").contains(active) && /^(INPUT|TEXTAREA)$/.test(active.tagName) && active.value.trim()) return;
+      ui.repaintLater = false;
+      render();
+    }, 0);
+  });
+  window.addEventListener("online", paintLive);
+  window.addEventListener("offline", paintLive);
 
   window.addEventListener("hashchange", () => {
     $("#toast").hidden = true;
@@ -1101,4 +1600,5 @@
     save();
   }
   render();
+  syncRooms();
 })();

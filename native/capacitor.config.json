@@ -1,0 +1,12 @@
+{
+  "appId": "io.github.juw12.tagalong",
+  "appName": "Tagalong",
+  "webDir": "www",
+  "backgroundColor": "#f5f0e6",
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "always"
+  }
+}

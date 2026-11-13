@@ -439,6 +439,7 @@ def flow(browser, base):
     link = page.locator("#invite-link").input_value()
     check("G9", "invite link carries the trip", "#join=" in link and len(link) > 200, f"length {len(link)}")
     check("G9", "invite link fits in a chat message", len(link) < 6000, f"length {len(link)}")
+    page.locator('#sheet [data-act="close"]').click()
 
     with page.expect_download() as download:
         page.locator('[data-act="ics"]').click()
@@ -472,6 +473,7 @@ def flow(browser, base):
     guest.locator('[data-act="share"]').click()
     guest.wait_for_selector("#invite-link")
     back_link = guest.locator("#invite-link").input_value()
+    guest.locator('#sheet [data-act="close"]').click()
 
     # merge the guest's changes back
     page.fill('form[data-form="merge-link"] input[name="link"]', back_link)
@@ -549,9 +551,9 @@ def sweep(browser, base, width, height, theme, shots):
 
     def shot(name):
         if shots:
-            page.screenshot(path=str(SHOTS / f"{name}-{width}-{theme}.png"), full_page=True)
+            page.screenshot(path=str(SHOTS / f"{name}-{width}-{theme}.png"), full_page=True, timeout=30000)
 
-    page.goto(base)
+    page.goto(base, timeout=30000)
     page.wait_for_selector("h1")
     page.wait_for_timeout(250)
     audit(page, "home empty", width, theme)
@@ -658,6 +660,8 @@ def sweep(browser, base, width, height, theme, shots):
     page.locator('[data-act="share"]').click()
     page.wait_for_selector("#invite-link")
     page.wait_for_timeout(150)
+    audit(page, "invite sheet", width, theme)
+    page.locator('#sheet [data-act="close"]').click()
     audit(page, "group", width, theme)
     shot("group")
 
@@ -726,6 +730,7 @@ def offline(browser, base):
     check("G8", "offline: stylesheet applied", bool(styled) and page.evaluate("document.styleSheets.length") >= 1, styled)
     check("G8", "offline: no failed requests", not failed, str(failed[:4]))
     context.set_offline(False)
+    context.close()
 
 
 def main():
