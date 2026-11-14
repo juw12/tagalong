@@ -78,7 +78,10 @@ echo "  $LAYOUT"
 echo "layout: $LAYOUT" >> "$EVIDENCE/result.txt"
 report "the header sits below the status bar" "$LAYOUT_OK" "$LAYOUT"
 
-xcrun simctl spawn "$UDID" launchctl list | grep -q "$APP_ID"
+# Read the whole list first. With pipefail, "launchctl list | grep -q" fails when grep finds the app early
+# and closes the pipe (signal 13), which reported a running app as "process not found".
+xcrun simctl spawn "$UDID" launchctl list > "$EVIDENCE/processes.txt" 2>/dev/null
+grep -q "$APP_ID" "$EVIDENCE/processes.txt"
 report "the app is still running" "$?" "process not found"
 
 xcrun simctl shutdown "$UDID" > /dev/null 2>&1
