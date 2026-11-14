@@ -72,7 +72,8 @@ read on 2026-11-13. Only listed features are compared; neither app was installed
 Where Tagalong is still weaker: it is not in the App Store or Google Play (both charge to publish; see
 [docs/install.md](docs/install.md) for the free routes), live sync depends on free public relays with no uptime
 promise (invite links still work without them), roles are enforced by the app rather than by a server, and the
-photo side of the travel history is one cover photo per trip.
+photo side of the travel history is one cover photo per trip. The Android and iPhone builds are checked on
+emulators and a simulator, not yet on a physical phone (results in [docs/release-notes.md](docs/release-notes.md)).
 
 ## Run it
 
@@ -91,10 +92,15 @@ node --test tests/
 python tests/e2e.py          # layout, contrast, tap targets, offline, the whole flow
 python tests/features.py     # roles, lock, places, map gestures, receipt OCR, live sync between two browsers
 python tests/live_public.py  # live sync over the real public relays (needs internet)
+python tests/safe_area.py    # the header and tab bar stay clear of a notch and a home bar
 ```
 
 The first runs the unit tests for the money maths, merge and share link. The second drives a real browser
 (Playwright) through the whole flow and checks layout, contrast, tap targets and offline start.
+
+The phone builds have their own check, `.github/workflows/device-check.yml`. It installs the released APK on
+Android 11, 14, 15 and 16 emulators and a simulator build on an iPhone simulator, then checks that the app starts,
+the header sits below the status bar, a trip can be made and live sync connects. Start it from the Actions tab.
 
 ## Files
 
@@ -103,6 +109,9 @@ The first runs the unit tests for the money maths, merge and share link. The sec
 - `live.js`: live sync (AES-GCM, a minimal MQTT-over-WebSocket client)
 - `vendor/ocr/`: Tesseract.js 5.1.1 and its English model (Apache-2.0), loaded only when you scan a receipt
 - `native/`, `.github/workflows/native.yml`: the Android and iOS builds, made on GitHub's free runners
+- `tests/device/`, `.github/workflows/device-check.yml`: the emulator and simulator check of a release
+- `docs/`: install guide, release notes, device-check screenshots and the Microsoft Store listing kit
+- `privacy.html`: the privacy policy page
 - `world.js`: world map shapes, built by `tools/build_world.py` from Natural Earth (public domain)
 - `sw.js`, `manifest.webmanifest`: offline shell and install metadata
 - `design.md`: the visual identity and its rules
