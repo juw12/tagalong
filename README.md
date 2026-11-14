@@ -114,6 +114,8 @@ Everything stays in this browser's storage. Data leaves the device only as a lin
 send, or, if you turn live sync on, as encrypted snapshots that the relays cannot read. An invite link contains the
 trip and (with live sync) its key, so treat it like the trip.
 
+The full policy is at https://juw12.github.io/tagalong/privacy.html.
+
 ## License
 
 MIT. Map data from Natural Earth. OCR by Tesseract.js (Apache-2.0).

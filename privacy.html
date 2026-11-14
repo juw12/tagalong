@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tagalong privacy policy</title>
+  <meta name="description" content="What Tagalong stores, what leaves your device and when.">
+  <meta name="theme-color" content="#f5f0e6">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; background: #f5f0e6; color: #1f1b16; font: 17px/1.6 Georgia, "Times New Roman", serif; }
+    main { max-width: 680px; margin: 0 auto; padding: 40px 20px 64px; }
+    h1 { font-size: 34px; line-height: 1.15; margin: 0 0 4px; }
+    h2 { font-size: 21px; margin: 32px 0 6px; }
+    p, li { margin: 0 0 10px; }
+    a { color: #a8321c; }
+    .date { color: #5d554a; font-size: 15px; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #17140f; color: #f1eadc; }
+      a { color: #f08a6e; }
+      .date { color: #b9ae9c; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Tagalong privacy policy</h1>
+    <p class="date">Last updated 14 November 2026. Applies to the web app, the Android and iPhone apps and the Windows app.</p>
+
+    <h2>The short version</h2>
+    <p>Tagalong has no account, no ads, no analytics and no server of its own. The people who make it never receive
+      your trips, names, expenses or photos.</p>
+
+    <h2>What is stored, and where</h2>
+    <p>Your trips, the names you type, votes, places, expenses and cover photos are saved in the app's own storage on
+      your device. Removing the app or clearing its site data deletes them. A backup file is only made when you ask
+      for one, and it is saved where you choose.</p>
+
+    <h2>When something leaves your device</h2>
+    <ul>
+      <li><strong>Invite links and backup files.</strong> An invite link holds the whole trip inside the link itself.
+        It goes wherever you send it, so treat the link like the trip.</li>
+      <li><strong>Live sync, only if you turn it on.</strong> Changes are encrypted on your device (AES-GCM) with a key
+        that only travels inside your invite links, then passed through free public message relays run by other
+        organisations (broker.emqx.io, broker.hivemq.com, test.mosquitto.org). Those relays can see your internet
+        address and encrypted data. They cannot read the trip. They keep the latest encrypted copy so that someone
+        who was offline can catch up. Turning live sync off stops the sending.</li>
+      <li><strong>Map links.</strong> Tapping MAP opens Google Maps with the place name you typed. Google's own policy
+        applies from there.</li>
+    </ul>
+
+    <h2>Camera and photos</h2>
+    <p>The receipt scanner reads the picture on your device. The picture is not uploaded. Camera and photo access is
+      asked for only when you use the scanner or pick a cover photo.</p>
+
+    <h2>Hosting</h2>
+    <p>The web app is served by GitHub Pages. Like any web host, GitHub receives your internet address when the app is
+      downloaded. See GitHub's privacy statement for what it keeps. After the first visit the app works offline.</p>
+
+    <h2>Children</h2>
+    <p>Tagalong does not collect personal information from anyone, including children.</p>
+
+    <h2>Changes and contact</h2>
+    <p>Changes to this page are recorded in the public history of the project. Questions:
+      <a href="https://github.com/juw12/tagalong/issues">github.com/juw12/tagalong/issues</a>.</p>
+    <p><a href="./">Open Tagalong</a></p>
+  </main>
+</body>
+</html>

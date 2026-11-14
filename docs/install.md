@@ -10,6 +10,7 @@ Tagalong is one app in four free wrappers. Every one of them runs the same code 
 | Android | Download **Tagalong.apk** from the latest release and open it | Nothing. Allow "install unknown apps" for your browser once. |
 | Android, auto-updates | Add `https://github.com/juw12/tagalong` to **Obtainium** | Nothing. Obtainium checks the GitHub releases and updates the app for you. |
 | Windows, Mac, Linux | Chrome or Edge, then the install icon in the address bar | Nothing. |
+| Windows, from the Microsoft Store | Not listed yet. The listing kit is ready in [microsoft-store.md](microsoft-store.md) | Nothing. Microsoft made individual developer accounts free. |
 
 Open the web app: https://juw12.github.io/tagalong/ (sample trips: https://juw12.github.io/tagalong/?demo=1)
 Downloads: https://github.com/juw12/tagalong/releases/latest
