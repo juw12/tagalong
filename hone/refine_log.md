@@ -257,3 +257,41 @@ Still needs Juwen (login or money, nothing else):
 - Apple App Store (US$99 a year) and Google Play (US$25) accounts, if those stores are wanted.
 
 stop: queue empty.
+
+
+## 2026-11-14 follow-up: what was still pending on the agent's side
+
+Audit first. Already current, nothing to change: the live web app (service worker `tagalong-v5`), the privacy page,
+the repository description, homepage and topics, the latest release v2.0.1, the profile README entry and the
+portfolio card.
+
+Changed:
+- README, commit `ad55837`: the safe-area gate, the device check, the new docs and the emulator-only limit.
+- Landing page https://juw12.github.io/p/tagalong/ rebuilt and published, site commit `4725ec8` in
+  `juw12/juw12.github.io`. Only `p/tagalong/index.html` changed. Looked at by eye at 1280 px and 390 px wide, full
+  page: readable hero, no sideways scroll, 0 script errors. The live page returns 200 and is byte-identical to the
+  built page. It now lists five limits, including "checked on emulators and a simulator, not yet on a physical phone".
+- Shared landing tool `enrich.py` (in the hone skill, not in this repository): the "recently shipped" list no longer
+  turns a first word such as "iOS" into "IOS". Other landing pages pick this up on their next rebuild.
+
+Not changed, on purpose: the keystore password split.
+- Checked: both Actions secrets exist, the backed-up keystore opens with the stored password, and its fingerprint
+  matches the record.
+- The private signing repository is the off-machine backup of the signing key, and a keystore without its password
+  is not a backup. The only other place the agent could put the password is this PC.
+- During the check the password was written to Windows Credential Manager, read back and compared by hash, then
+  deleted, and the deletion was verified. No copy was left on this PC. The signing repository is unchanged.
+
+Assumed:
+- The keystore password stays in the private signing repository until it is in Juwen's own password manager;
+  removing it first would leave the only readable copy on this PC.
+- A landing page refresh counts as "pending on the agent's side" because the page still described v2.0.0-era limits.
+
+Still needs Juwen (login, phone or money, nothing else):
+- Microsoft Partner Center: sign in, accept the agreement, pass the identity check and submit.
+- Installing on a physical Android phone or iPhone.
+- Apple App Store (US$99 a year) and Google Play (US$25) accounts, if those stores are wanted.
+- Copy the keystore password into his own password manager. After that the password file can be removed from the
+  signing repository and its history.
+
+stop: queue empty.
