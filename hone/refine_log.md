@@ -295,3 +295,39 @@ Still needs Juwen (login, phone or money, nothing else):
   signing repository and its history.
 
 stop: queue empty.
+
+
+
+## 2026-11-14 decision: no store listings, local and free installs only
+
+Juwen: "no need to make it an app in app store first, just local with free ones only."
+
+Decision: Tagalong is not submitted to any store. It ships only by the free local installs that already work:
+the web app and home-screen install, the signed Android APK (also through Obtainium) and the unsigned iPhone IPA
+sideloaded with a free Apple ID.
+
+Changed, commit `7a6e749`:
+- `docs/microsoft-store.md` is marked parked. It is kept, not deleted, with `docs/store/` and
+  `tools/store_shots.py`, so a listing can still be made later without redoing the work.
+- `docs/install.md`: the Microsoft Store row now says "not planned", and the "why no store" section states the
+  decision.
+- `README.md`: says "not in any app store" as a decision and calls the kit parked.
+
+Checked: every relative link in the three changed files points at a file that exists (6 links, 0 missing).
+No app code changed, so the unit, browser and device gates were not re-run.
+
+Not changed: the landing page. It never promised a store listing and already names the three free installs.
+
+Assumed:
+- "App store" means every store: Microsoft Store, Apple App Store and Google Play.
+- "Local with free ones only" means the install routes already built, not a new packaging format.
+- Parking beats deleting: the kit costs nothing to keep and deleting it could not be undone as cheaply.
+
+Still needs Juwen (a phone and his own password manager, no account and no money):
+- Install on a physical phone: the APK on Android; on iPhone, Safari "Add to Home Screen" or the sideload.
+- Copy the keystore password into his own password manager. After that the password file can be removed from the
+  signing repository and its history.
+
+No longer on the list: Microsoft Partner Center, the Apple Developer Program and the Google Play account.
+
+stop: queue empty.
