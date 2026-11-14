@@ -1,11 +1,15 @@
 """Install the released APK on an Android emulator and use it like a person would.
 
-python3 tests/device/android_check.py <Tagalong.apk> <evidence folder>
+python3 tests/device/android_check.py <Tagalong.apk> <evidence folder> [expected version, e.g. 2.0.1]
 
 Run inside the Device check workflow (GitHub Actions, free runner with an emulator). It installs the APK,
 opens the app, waits for the first screen, checks that the header starts below the status bar, opens the
 sample trip, turns on live sync and reads the relay count. Text on screen is read two ways: the accessibility tree (uiautomator) and OCR of the screenshot
 (tesseract), so one of them failing does not fail the check. Every step saves a screenshot.
+
+Emulators on free runners are slow, and the system sometimes covers the app with a "<another app> isn't
+responding" box (seen with Pixel Launcher on API 35). The check presses Wait on those and says so in the
+result. If the box names Tagalong itself, that is a failure, not something to dismiss.
 
 This proves the released file installs and runs on an emulator. It is not a check on a physical phone.
 """
@@ -20,9 +24,12 @@ from pathlib import Path
 APP_ID = "io.github.juw12.tagalong"
 APK = Path(sys.argv[1])
 EVIDENCE = Path(sys.argv[2])
+EXPECTED_VERSION = sys.argv[3].strip() if len(sys.argv) > 3 else ""
 EVIDENCE.mkdir(parents=True, exist_ok=True)
 
 checks = []
+dismissed_dialogs = []
+app_freezes = []
 
 
 def check(label, ok, detail="", core=True):
@@ -90,9 +97,35 @@ def ocr_items(image_path):
     return items
 
 
+NOT_RESPONDING = r"(.+?) (isn.t responding|keeps stopping|has stopped)"
+
+
+def clear_system_dialog(items):
+    """Press Wait when the system says another app is not responding. True if something was dismissed."""
+    dialog = find(items, NOT_RESPONDING)
+    if not dialog:
+        return False
+    title = dialog["text"].strip()
+    if re.search(r"tagalong", title, re.IGNORECASE):
+        if title not in app_freezes:
+            app_freezes.append(title)
+        return False
+    button = find(items, r"^wait$") or find(items, r"^close app$") or find(items, r"^ok$")
+    if not button:
+        return False
+    dismissed_dialogs.append(title)
+    print(f"  system dialog dismissed: {title}", flush=True)
+    tap(button)
+    return True
+
+
 def read_screen(name):
-    image = screenshot(name)
-    return tree_items() + ocr_items(image)
+    for attempt in range(4):
+        image = screenshot(name)
+        items = tree_items() + ocr_items(image)
+        if not clear_system_dialog(items):
+            return items
+    return items
 
 
 def find(items, pattern):
@@ -110,6 +143,9 @@ def wait_for(pattern, name, seconds=120):
         items = read_screen(name)
         hit = find(items, pattern)
         if hit:
+            # The text can be in the accessibility tree a moment before it is painted: keep a painted picture.
+            time.sleep(1.5)
+            screenshot(name)
             return hit, items
         time.sleep(3)
     return None, items
@@ -176,7 +212,11 @@ def main():
     check("the released APK installs", "Success" in install, install)
     package = adb("shell", "dumpsys", "package", APP_ID)
     version = re.search(r"versionName=(\S+)", package)
-    check("installed version is 2.x", bool(version and version.group(1).startswith("2.")), version and version.group(1))
+    installed = version.group(1) if version else ""
+    if EXPECTED_VERSION:
+        check(f"installed version is {EXPECTED_VERSION}", installed == EXPECTED_VERSION, installed or "not found")
+    else:
+        check("installed version is 2.x", installed.startswith("2."), installed or "not found")
     webview = re.search(r"versionName=(\S+)", adb("shell", "dumpsys", "package", "com.google.android.webview"))
     release = adb("shell", "getprop", "ro.build.version.release").strip()
     sdk = adb("shell", "getprop", "ro.build.version.sdk").strip()
@@ -233,6 +273,8 @@ def main():
     (EVIDENCE / "logcat.txt").write_text(log, encoding="utf-8")
     crashes = [line for line in log.splitlines() if "FATAL EXCEPTION" in line or f"Process: {APP_ID}" in line]
     check("no crash in the device log", not crashes, crashes[:3])
+    frozen = [line.strip() for line in log.splitlines() if f"ANR in {APP_ID}" in line]
+    check("Tagalong never stopped responding", not frozen and not app_freezes, (frozen + app_freezes)[:3])
     pid = adb("shell", "pidof", APP_ID).strip()
     check("the app is still running", pid.isdigit(), f"pid {pid}" if pid.isdigit() else "no process found")
 
@@ -244,6 +286,7 @@ def main():
         "version": version.group(1) if version else None,
         "relays": relays,
         "layout": layout_detail,
+        "system_dialogs_dismissed": dismissed_dialogs,
         "checks": checks,
         "core_passed": all(item["ok"] for item in checks if item["core"]),
         "all_passed": all(item["ok"] for item in checks),
