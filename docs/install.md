@@ -10,15 +10,20 @@ Tagalong is one app in four free wrappers. Every one of them runs the same code 
 | Android | Download **Tagalong.apk** from the latest release and open it | Nothing. Allow "install unknown apps" for your browser once. |
 | Android, auto-updates | Add `https://github.com/juw12/tagalong` to **Obtainium** | Nothing. Obtainium checks the GitHub releases and updates the app for you. |
 | Windows, Mac, Linux | Chrome or Edge, then the install icon in the address bar | Nothing. |
-| Windows, from the Microsoft Store | Not listed yet. The listing kit is ready in [microsoft-store.md](microsoft-store.md) | Nothing. Microsoft made individual developer accounts free. |
+| Windows, from the Microsoft Store | Not planned. Use the install icon in Edge or Chrome, the row above | Nothing. A listing kit is kept, parked, in [microsoft-store.md](microsoft-store.md). |
 
 Open the web app: https://juw12.github.io/tagalong/ (sample trips: https://juw12.github.io/tagalong/?demo=1)
 Downloads: https://github.com/juw12/tagalong/releases/latest
 
-## Why not the App Store or Google Play?
+## Why no store at all?
 
-Both charge a fee to publish: Apple's Developer Program is US$99 a year and a Google Play developer account is a
-one-time US$25. There is no free way onto either store. Everything above avoids them.
+Tagalong is not in any app store and no store listing is planned. The free installs above are the whole
+distribution: they need no developer account, no review and no fee.
+
+The App Store and Google Play both charge a fee to publish: Apple's Developer Program is US$99 a year and a
+Google Play developer account is a one-time US$25. There is no free way onto either store. Everything above
+avoids them.
+The Microsoft Store is free for individuals but needs a personal sign-in and an identity check, so it is parked too.
 If that changes, the same native projects (`native/`) can be submitted as they are.
 
 ## Sideloading on iPhone, step by step (Windows)

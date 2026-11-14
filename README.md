@@ -69,11 +69,12 @@ read on 2026-11-13. Only listed features are compared; neither app was installed
 | Works offline | yes, fully | viewing | not listed |
 | Price | free | not checked | not checked |
 
-Where Tagalong is still weaker: it is not in the App Store or Google Play (both charge to publish; see
-[docs/install.md](docs/install.md) for the free routes), live sync depends on free public relays with no uptime
-promise (invite links still work without them), roles are enforced by the app rather than by a server, and the
-photo side of the travel history is one cover photo per trip. The Android and iPhone builds are checked on
-emulators and a simulator, not yet on a physical phone (results in [docs/release-notes.md](docs/release-notes.md)).
+Where Tagalong is still weaker: it is not in any app store. That is a decision, not a gap in the build: it ships
+only by the free local installs in [docs/install.md](docs/install.md) (web app, home screen, APK, iPhone
+sideload), and the App Store and Google Play both charge to publish. Live sync depends on free public relays
+with no uptime promise (invite links still work without them), roles are enforced by the app rather than by a
+server, and the photo side of the travel history is one cover photo per trip. The Android and iPhone builds are
+checked on emulators and a simulator, not yet on a physical phone (results in [docs/release-notes.md](docs/release-notes.md)).
 
 ## Run it
 
@@ -110,7 +111,7 @@ the header sits below the status bar, a trip can be made and live sync connects.
 - `vendor/ocr/`: Tesseract.js 5.1.1 and its English model (Apache-2.0), loaded only when you scan a receipt
 - `native/`, `.github/workflows/native.yml`: the Android and iOS builds, made on GitHub's free runners
 - `tests/device/`, `.github/workflows/device-check.yml`: the emulator and simulator check of a release
-- `docs/`: install guide, release notes, device-check screenshots and the Microsoft Store listing kit
+- `docs/`: install guide, release notes, device-check screenshots and a parked Microsoft Store listing kit
 - `privacy.html`: the privacy policy page
 - `world.js`: world map shapes, built by `tools/build_world.py` from Natural Earth (public domain)
 - `sw.js`, `manifest.webmanifest`: offline shell and install metadata

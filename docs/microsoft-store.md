@@ -1,11 +1,15 @@
-# Tagalong on the Microsoft Store
+# Tagalong on the Microsoft Store (parked)
+
+> **Parked on 2026-11-14.** No store listing is planned. Tagalong ships only by the free local installs in
+> [install.md](install.md): the web app, the home-screen install, the Android APK and the iPhone sideload.
+> Nothing below is a to-do. The kit is kept so the listing can be made later without redoing the work.
 
 Tagalong already installs on Windows without the Store: open https://juw12.github.io/tagalong/ in Edge or Chrome and
 press the install icon in the address bar. The Store listing is the same app, wrapped so people can find it by search.
 
 Everything that does not need your Microsoft sign-in is prepared in this folder. The sign-in part is about 20 minutes.
 
-## What only you can do
+## If a listing is ever wanted: what only you can do
 
 Microsoft ties a Store listing to a person. These steps need your Microsoft account, your acceptance of the App
 Developer Agreement and Microsoft's identity check, so nobody else may do them for you.
@@ -111,4 +115,4 @@ PWABuilder makes the tile images inside the package from the same icon.
 - The Store package is a thin wrapper around the web app at `https://juw12.github.io/tagalong/`. It updates when the
   web app does. The first start needs the internet. After that it works offline.
 - Live sync runs over free public relays with no uptime promise.
-- Nothing here has been submitted or reviewed by Microsoft yet.
+- Nothing here has been submitted to or reviewed by Microsoft, and no submission is planned.
