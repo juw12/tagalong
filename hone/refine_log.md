@@ -161,6 +161,7 @@ live run failed. Added a third free relay on port 8081 (test.mosquitto.org), whi
 "N of M relays" label that never updated after the first paint. Behind this proxy the app shows "1 of 3 relays".
 
 Release: https://github.com/juw12/tagalong/releases/tag/v2.0.0 (workflow run 43422620189, all jobs green).
+Superseded on 2026-11-14 by https://github.com/juw12/tagalong/releases/tag/v2.0.1 (see "Blocked list cleared" below).
 - `Tagalong.apk` signed with the project key (cert SHA-256 6B:A4:51:...:EC:00, checked from the downloaded file).
 - `Tagalong-unsigned.ipa` for free sideloading (AltStore or Sideloadly, re-sign every 7 days with a free Apple ID).
 - `SHA256SUMS.txt`; both sums re-checked on download.
@@ -174,8 +175,85 @@ Assumed:
 - App Store (US$99 a year) and Google Play (US$25) cost money, so the free routes are the web app, the APK release
   (also works with Obtainium) and iPhone sideloading.
 
-Not verified: installing the APK or IPA on a real phone (no device or Java on this PC). The council (3 judges)
-pairwise of v2 against v1 was not run this round.
+Not verified at the time of this entry: installing the APK or IPA on a phone (no device or Java on this PC), and the
+council (3 judges) pairwise of v2 against v1. Both were done afterwards; see "Blocked list cleared" below.
+Still not done: an install on a physical phone.
 
-stop: queue empty. Store listings need a paid developer account, which this run does not use.
+stop: queue empty. Store listings need a developer account, which this run does not use.
+(2026-11-14: the Microsoft Store listing kit is now prepared; only the sign-in and submission are left for Juwen.)
 | 2026-11-13 20:09 | council pair | B wins: True | votes A/B/tie 0/2/1 | council-judged (3 judges) |
+
+## Blocked list cleared (2026-11-14)
+
+Goal: finish everything the v2 entry above left as blocked or not done, without asking.
+
+What the device checks found:
+- v2.0.0 had a real bug. On Android 15 and 16 the app drew under the status bar: the header started at 21 px and the
+  status bar ends at 63 px (run 43546428965, API 36: 9 of 10 checks; API 35: 5 of 10, also blocked by a
+  "Pixel Launcher isn't responding" box from the emulator; API 34 and API 30 passed).
+- Fix, commit `e78a334`: safe-area padding in the stylesheet for the header, the sticky trip tabs, sheets and toasts;
+  `native/patch-android.mjs` opts the Android app out of edge-to-edge so the status bar stays a separate bar;
+  `sw.js` cache name moved to `tagalong-v5` so installed copies pick it up.
+- New gate G12, `tests/safe_area.py`: a desktop browser is told the screen has a 59 px status bar and a 34 px home bar.
+  18 of 18 checks pass on main (re-run at the end of this round). The same gate fails against the 2.0.0 stylesheet
+  (10 failing checks when tried), so it does catch the bug.
+
+Release v2.0.1: https://github.com/juw12/tagalong/releases/tag/v2.0.1 (tag at `6a6f3cc`, build run 43548157927, android,
+ios and release jobs green).
+- `Tagalong.apk` 9,565,617 bytes, signed with the same project key as v2.0.0, versionCode 3, compileSdk and targetSdk 35.
+- `Tagalong-unsigned.ipa` 6,622,316 bytes, bundle id `io.github.juw12.tagalong`, minimum iOS 14.0.
+- `SHA256SUMS.txt`.
+
+Device check results for v2.0.1 (the released APK on emulators, a simulator build on an iPhone simulator):
+
+| Run | Android 11 | Android 14 | Android 15 | Android 16 | iPhone 16 Pro Max simulator, iOS 26.2 |
+|---|---|---|---|---|---|
+| 43548443072 | 11/11 | 11/11 | 11/11 | 11/11 | 5/6, false failure in the test script |
+| 43549797022 | 11/11 | 11/11 | 11/11 | 11/11 | 6/6 |
+
+- Android: the header starts 21 px below the status bar (149 px against 128 px; 84 px against 63 px on Android 11),
+  the app reports version 2.0.1, live sync shows "3 of 3 relays", and no system dialog covers the app.
+- iOS: install, version, launch and first screen pass; the header starts at 253 px and the status bar zone ends at 158 px.
+- Run 43548443072 is red only because of the test script: with `set -o pipefail`, `launchctl list | grep -q` ended the
+  pipe early and reported a running app as gone. Fixed in `f23f9ab` (`tests/device/ios_check.sh` reads the list into a
+  file first). The app was not changed and not re-tagged. Run 43549797022 from `f23f9ab` is green on all five jobs and
+  its process list contains `UIKitApplication:io.github.juw12.tagalong`.
+- Earlier runs: 43428245102 (first v2.0.0 check) and 43546428965 (v2.0.0, the run that showed the overlap).
+- Screenshots kept in `docs/device-check/`: `android-16-home.png`, `android-15-live.png`, `android-11-home.png`,
+  `ios-26-home.png`. All four were looked at by eye.
+- Limits: emulators and a simulator, not physical phones. The simulator build comes from the same source as the IPA
+  but is not the same file, because an unsigned device IPA cannot run on a simulator.
+
+Local gates on this PC:
+- e2e browser gates: 9/9 when run alone. Three earlier runs under machine load gave 8/9; each time G3 hit an 8 s
+  timeout in a different sweep and never reported an overflow. The baseline `59a335d` also gave 9/9.
+- Core 12/12, live 5/5, features 43/43, G12 safe area 18/18.
+
+Council pairwise (3 judges), v2 against v1: v2 preferred, votes 2 for v2, 0 for v1, 1 tie. It was judged on web
+screenshots taken before the safe-area fix, so it says nothing about the status bar.
+
+Also done:
+- Signing key backup in the private repository https://github.com/juw12/tagalong-signing; the fingerprint matches the
+  released APK.
+- Microsoft Store kit, commit `79c91cb`: `docs/microsoft-store.md` (listing text and the steps), six 2732x1536
+  screenshots in `docs/store/`, `tools/store_shots.py` to regenerate them, and `privacy.html`, live at
+  https://juw12.github.io/tagalong/privacy.html.
+- Device check hardening, commit `6a6f3cc`: exact version match, dismisses another app's not-responding box, waits for
+  a painted screen before the screenshot.
+
+Assumed:
+- No Electron exe and no unsigned MSIX: the web app already installs on Windows from Edge or Chrome.
+- The privacy contact is the GitHub issues page.
+- The PWABuilder packaging step was skipped because the package identity values only exist after the Partner Center sign-in.
+- The keystore password file sits beside the keystore in the private repository. Splitting them is a one-step change.
+- Individual Microsoft developer registration is reported as free; to be confirmed at sign-up.
+- v2.0.1 was tagged at `6a6f3cc`: the app code is from `e78a334`, plus the Store kit and test-script commits.
+- The iOS "process not found" was treated as a test-script bug, not a crash. The re-run confirmed it.
+- Git pushes use git's own user agent. An intermittent HTTP 407 from one office proxy node delayed pushes; retries got through.
+
+Still needs Juwen (login or money, nothing else):
+- Microsoft Partner Center: sign in, accept the agreement, pass the identity check and submit. Nothing was submitted.
+- Installing on a physical Android phone or iPhone.
+- Apple App Store (US$99 a year) and Google Play (US$25) accounts, if those stores are wanted.
+
+stop: queue empty.
