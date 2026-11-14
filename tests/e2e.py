@@ -577,14 +577,14 @@ def sweep(browser, base, width, height, theme, shots):
         page.screenshot(path=str(SHOTS / f"sheet-trip-{width}-{theme}.png"))
     page.locator('#sheet [data-act="close"]').click()
 
-    page.goto(base + "?demo=1")
+    page.goto(base + "?demo=1", timeout=30000)
     page.wait_for_selector("a.tag")
     page.wait_for_timeout(250)
     audit(page, "home", width, theme)
     shot("home")
     trip = page.eval_on_selector("a.tag", "el => el.getAttribute('href')").rsplit("/", 1)[0]
 
-    page.goto(base + "?demo=1" + trip + "/plan")
+    page.goto(base + "?demo=1" + trip + "/plan", timeout=30000)
     page.wait_for_selector("section.tab-plan")
     page.wait_for_timeout(200)
     audit(page, "plan", width, theme)
@@ -743,6 +743,8 @@ def main():
     launch = {"args": ["--proxy-bypass-list=127.0.0.1;localhost"]}
     if ARGS.proxy:
         launch = {"proxy": {"server": ARGS.proxy}}
+    if os.environ.get("TAGALONG_BROWSER"):  # a browser already on this machine, when the bundled one is missing
+        launch["executable_path"] = os.environ["TAGALONG_BROWSER"]
     with sync_playwright() as play:
         browser = play.chromium.launch(**launch)
         stages = [("flow", lambda: flow(browser, base), "G9"), ("offline", lambda: offline(browser, base), "G8")]

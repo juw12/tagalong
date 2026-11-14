@@ -4,9 +4,7 @@
   "webDir": "www",
   "backgroundColor": "#f5f0e6",
   "android": {
-    "allowMixedContent": false
-  },
-  "ios": {
-    "contentInset": "always"
+    "allowMixedContent": false,
+    "adjustMarginsForEdgeToEdge": "auto"
   }
 }

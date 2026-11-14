@@ -3,8 +3,8 @@
 python3 tests/device/android_check.py <Tagalong.apk> <evidence folder>
 
 Run inside the Device check workflow (GitHub Actions, free runner with an emulator). It installs the APK,
-opens the app, waits for the first screen, opens the sample trip, turns on live sync and reads the relay
-count. Text on screen is read two ways: the accessibility tree (uiautomator) and OCR of the screenshot
+opens the app, waits for the first screen, checks that the header starts below the status bar, opens the
+sample trip, turns on live sync and reads the relay count. Text on screen is read two ways: the accessibility tree (uiautomator) and OCR of the screenshot
 (tesseract), so one of them failing does not fail the check. Every step saves a screenshot.
 
 This proves the released file installs and runs on an emulator. It is not a check on a physical phone.
@@ -57,7 +57,7 @@ def tree_items():
         box = re.findall(r"\d+", node.get("bounds") or "")
         if text and len(box) == 4:
             left, top, right, bottom = map(int, box)
-            items.append({"text": text, "x": (left + right) // 2, "y": (top + bottom) // 2, "source": "tree"})
+            items.append({"text": text, "x": (left + right) // 2, "y": (top + bottom) // 2, "top": top, "bottom": bottom, "source": "tree"})
     return items
 
 
@@ -86,7 +86,7 @@ def ocr_items(image_path):
     items = []
     for entry in lines.values():
         left, top, right, bottom = entry["box"]
-        items.append({"text": " ".join(entry["words"]), "x": (left + right) // 2, "y": (top + bottom) // 2, "source": "ocr"})
+        items.append({"text": " ".join(entry["words"]), "x": (left + right) // 2, "y": (top + bottom) // 2, "top": top, "bottom": bottom, "source": "ocr"})
     return items
 
 
@@ -120,9 +120,48 @@ def tap(item):
     time.sleep(2)
 
 
-def swipe_up():
+def screen_size():
     size = re.findall(r"(\d+)x(\d+)", adb("shell", "wm", "size"))
-    width, height = map(int, size[-1]) if size else (1080, 1920)
+    return tuple(map(int, size[-1])) if size else (1080, 1920)
+
+
+def status_bar_bottom(window_dump, items, screen_height):
+    """Where the system status bar ends, in pixels from the top, and how that was measured."""
+    frames = re.findall(
+        r"InsetsSource[^\n]*(?:STATUS_BAR|statusBars)[^\n]*?frame=\[0,0\]\[\d+,(\d+)\]",
+        window_dump,
+        re.IGNORECASE,
+    )
+    heights = [int(value) for value in frames if 0 < int(value) < screen_height * 0.2]
+    if heights:
+        return max(heights), "system window report"
+    clocks = [
+        item for item in items
+        if re.fullmatch(r"\d{1,2}:\d{2}", item["text"].strip()) and item["y"] < screen_height * 0.08
+    ]
+    if clocks:
+        return max(item["bottom"] for item in clocks), "bottom of the clock on screen"
+    return None, "not measured"
+
+
+HEADER_WORDS = re.compile(r"^\W{0,3}(tagalong|trips|passport|dark|light|switch to (dark|light) theme)$", re.IGNORECASE)
+
+
+def header_layout(items, bar_bottom, screen_height):
+    """The app header (brand, Trips, Passport, theme button) must start below the status bar."""
+    header = [item for item in items if HEADER_WORDS.match(item["text"].strip()) and item["y"] < screen_height * 0.25]
+    seen_header = ", ".join(sorted({f"{item['text'].strip()}@{item['top']}" for item in header}))
+    if bar_bottom is None:
+        return False, f"status bar not measured; header: {seen_header}"
+    if len({item["text"].strip().lower() for item in header}) < 2:
+        return False, f"header not found on screen (status bar ends at {bar_bottom}px); saw: {seen_header}"
+    highest = min(item["top"] for item in header)
+    detail = f"status bar ends at {bar_bottom}px, header starts at {highest}px ({seen_header})"
+    return highest >= bar_bottom - 2, detail
+
+
+def swipe_up():
+    width, height = screen_size()
     adb("shell", "input", "swipe", str(width // 2), str(int(height * 0.72)), str(width // 2), str(int(height * 0.30)), "400")
     time.sleep(2)
 
@@ -151,6 +190,16 @@ def main():
     resumed = adb("shell", "dumpsys", "activity", "activities")
     top = [line.strip() for line in resumed.splitlines() if "ResumedActivity" in line]
     check("Tagalong is the foreground app", any(APP_ID in line for line in top), top)
+
+    # 2b. Nothing of the app may sit under the clock and battery icons.
+    width, height = screen_size()
+    window_dump = adb("shell", "dumpsys", "window", timeout=120)
+    (EVIDENCE / "window.txt").write_text(window_dump, encoding="utf-8")
+    bar_bottom, bar_source = status_bar_bottom(window_dump, items, height)
+    layout_ok, layout_detail = header_layout(items, bar_bottom, height)
+    layout_detail = f"{layout_detail}; measured from the {bar_source}; screen {width}x{height}"
+    print("  " + layout_detail, flush=True)
+    check("the header sits below the status bar", layout_ok, layout_detail)
 
     # 3. Open the sample trip and reach its tabs.
     sample = find(items, r"look around a sample trip") or find(items, r"open this trip|open the sample trip")
@@ -184,7 +233,8 @@ def main():
     (EVIDENCE / "logcat.txt").write_text(log, encoding="utf-8")
     crashes = [line for line in log.splitlines() if "FATAL EXCEPTION" in line or f"Process: {APP_ID}" in line]
     check("no crash in the device log", not crashes, crashes[:3])
-    check("the app is still running", adb("shell", "pidof", APP_ID).strip().isdigit(), "no process")
+    pid = adb("shell", "pidof", APP_ID).strip()
+    check("the app is still running", pid.isdigit(), f"pid {pid}" if pid.isdigit() else "no process found")
 
     summary = {
         "what": "emulator check of the released APK (not a physical phone)",
@@ -193,6 +243,7 @@ def main():
         "webview": webview.group(1) if webview else None,
         "version": version.group(1) if version else None,
         "relays": relays,
+        "layout": layout_detail,
         "checks": checks,
         "core_passed": all(item["ok"] for item in checks if item["core"]),
         "all_passed": all(item["ok"] for item in checks),

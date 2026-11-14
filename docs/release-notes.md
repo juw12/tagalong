@@ -1,3 +1,15 @@
+Tagalong 2.0.1: the app no longer sits under the clock and battery.
+
+**Fixed**
+- On phones where the app fills the whole screen (iPhones with a notch or Dynamic Island, and Android 15 and newer), the top bar was drawn underneath the status bar. The header, the sticky trip tabs, sheets and toasts now keep clear of the status bar, the notch and the home bar.
+- Android 15 and newer: the status bar stays a separate bar above the app.
+
+**How this was checked**
+- A new layout test tells a desktop browser the screen has a 59 px notch and a 34 px home bar and checks 18 things in light and dark. The same test fails against the 2.0.0 stylesheet, so it does catch the bug.
+- The Device check workflow now fails if the header starts inside the status bar zone. It runs the APK on Android emulators and a simulator build on an iPhone simulator. These are emulators and a simulator, not physical phones.
+
+Everything from 2.0 is unchanged:
+
 Tagalong 2: everything the first version was missing, and free ways onto every phone.
 
 **New**

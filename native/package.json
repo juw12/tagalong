@@ -1,7 +1,7 @@
 {
   "name": "tagalong-native",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Native Android and iOS shells for Tagalong, built for free on GitHub Actions. The app inside is the same web app.",
   "scripts": {
     "prepare-web": "node prepare.mjs"

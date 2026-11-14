@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish, e.g. v2.0.0"
+        description: "Release tag to publish, e.g. v2.0.1"
         required: true
-        default: "v2.0.0"
+        default: "v2.0.1"
   push:
     tags: ["v*"]
 
@@ -39,6 +39,9 @@ jobs:
           npx cap add android
           npx capacitor-assets generate --android --iconBackgroundColor '#b93a1e' --splashBackgroundColor '#f5f0e6' --splashBackgroundColorDark '#16140f'
           npx cap sync android
+          node patch-android.mjs
+          grep -c windowOptOutEdgeToEdgeEnforcement android/app/src/main/res/values/styles.xml
+          grep -E "targetSdkVersion|compileSdkVersion" android/variables.gradle
       - name: Version from the run number
         working-directory: native/android
         run: |

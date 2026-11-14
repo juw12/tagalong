@@ -1,6 +1,7 @@
 # Does the release really install and run? Checked for free on GitHub's runners:
 #   Android: the released APK is installed on an emulator, opened and used (sample trip, live sync).
 #   iOS:     the released IPA is inspected, and the same project is built for the simulator, installed and opened.
+#   Both:    the app header must start below the status bar (clock, battery, Dynamic Island).
 # Screenshots and results are kept as run artifacts. An emulator or simulator is not a physical phone.
 name: Device check
 
@@ -8,15 +9,20 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to check, e.g. v2.0.0"
+        description: "Release tag to check, e.g. v2.0.1"
         required: true
-        default: "v2.0.0"
+        default: "v2.0.1"
+      ios_ref:
+        description: "Source to build for the iOS simulator (branch, tag or commit). Empty means the release tag."
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
 env:
   TAG: ${{ github.event.inputs.tag }}
+  IOS_REF: ${{ github.event.inputs.ios_ref || github.event.inputs.tag }}
 
 jobs:
   android-emulator:
@@ -25,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [34, 30]
+        api: [36, 35, 34, 30]
     steps:
       - uses: actions/checkout@v4
       - name: Let the runner use hardware acceleration
@@ -67,6 +73,11 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+      - name: App source at the version being checked
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.IOS_REF }}
+          path: app-src
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -75,6 +86,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p evidence
+          echo "simulator build source: $IOS_REF at $(git -C app-src rev-parse --short HEAD)" | tee evidence/source.txt
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p Tagalong-unsigned.ipa -p SHA256SUMS.txt -D out
           cd out
           EXPECTED=$(grep 'Tagalong-unsigned.ipa' SHA256SUMS.txt | cut -d' ' -f1)
@@ -94,7 +106,7 @@ jobs:
           test -f Payload/App.app/public/index.html
           test -f Payload/App.app/public/app.js
       - name: Wrap the web app
-        working-directory: native
+        working-directory: app-src/native
         run: |
           npm install --no-audit --no-fund
           node prepare.mjs
@@ -102,20 +114,20 @@ jobs:
           npx capacitor-assets generate --ios --splashBackgroundColor '#f5f0e6' --splashBackgroundColorDark '#16140f'
           npx cap sync ios
       - name: Same Info.plist edits as the release build
-        working-directory: native/ios/App/App
+        working-directory: app-src/native/ios/App/App
         run: |
           /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Take a photo of a receipt to split it. The photo is read on this phone and never uploaded.'" Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Pick a photo of a receipt or a cover photo for a trip. Nothing is uploaded.'" Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${TAG#v}" Info.plist || true
       - name: Build for the simulator
-        working-directory: native/ios/App
+        working-directory: app-src/native/ios/App
         run: |
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO build | tail -n 30
           ls build/Build/Products/Debug-iphonesimulator/
       - name: Install and open it in the simulator
-        run: bash tests/device/ios_check.sh native/ios/App/build/Build/Products/Debug-iphonesimulator/App.app evidence
+        run: bash tests/device/ios_check.sh app-src/native/ios/App/build/Build/Products/Debug-iphonesimulator/App.app evidence
       - uses: actions/upload-artifact@v4
         if: always()
         with:

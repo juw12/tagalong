@@ -178,3 +178,4 @@ Not verified: installing the APK or IPA on a real phone (no device or Java on th
 pairwise of v2 against v1 was not run this round.
 
 stop: queue empty. Store listings need a paid developer account, which this run does not use.
+| 2026-11-13 20:09 | council pair | B wins: True | votes A/B/tie 0/2/1 | council-judged (3 judges) |

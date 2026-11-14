@@ -11,6 +11,7 @@ import argparse
 import functools
 import http.server
 import json
+import os
 import socketserver
 import sys
 import tempfile
@@ -305,7 +306,10 @@ def main():
     relay = Relay()
     relay_url = relay.start()
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(**({"proxy": {"server": ARGS.proxy, "bypass": "<-loopback>,localhost,127.0.0.1"}} if ARGS.proxy else {}))
+        launch = {"proxy": {"server": ARGS.proxy, "bypass": "<-loopback>,localhost,127.0.0.1"}} if ARGS.proxy else {}
+        if os.environ.get("TAGALONG_BROWSER"):  # a browser already on this machine, when the bundled one is missing
+            launch["executable_path"] = os.environ["TAGALONG_BROWSER"]
+        browser = playwright.chromium.launch(**launch)
         try:
             run(browser, base, relay_url, relay)
         except Exception as error:

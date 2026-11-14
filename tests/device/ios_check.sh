@@ -70,6 +70,14 @@ for attempt in $(seq 1 12); do
 done
 report "the first screen renders (Start a trip / sample trip)" "$FOUND" "$(head -c 300 "$EVIDENCE/ios-1-home.txt" | tr '\n' '|')"
 
+# Nothing of the app may sit under the clock, the Dynamic Island or the battery icon.
+swift "$HERE/ocr.swift" --boxes "$EVIDENCE/ios-1-home.png" > "$EVIDENCE/ios-1-home-boxes.tsv" 2>> "$EVIDENCE/ocr-error.txt"
+LAYOUT=$(python3 "$HERE/header_check.py" "$EVIDENCE/ios-1-home-boxes.tsv" "$EVIDENCE/ios-1-home.png" 2>&1)
+LAYOUT_OK=$?
+echo "  $LAYOUT"
+echo "layout: $LAYOUT" >> "$EVIDENCE/result.txt"
+report "the header sits below the status bar" "$LAYOUT_OK" "$LAYOUT"
+
 xcrun simctl spawn "$UDID" launchctl list | grep -q "$APP_ID"
 report "the app is still running" "$?" "process not found"
 
