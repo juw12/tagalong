@@ -4,7 +4,13 @@ Plan a trip with your group, vote on ideas, split every bill to the cent, and ke
 No account, no server, works offline. Free.
 
 Live: https://juw12.github.io/tagalong/ (add `?demo=1` to open it with sample trips)
-Android APK and iPhone sideload IPA: https://github.com/juw12/tagalong/releases/latest (free; see [docs/install.md](docs/install.md))
+
+- **iPhone:** open the live page in Safari, tap Share, then *Add to Home Screen*; or sideload the IPA from https://github.com/juw12/tagalong/releases/latest (free; see [docs/install.md](docs/install.md))
+- **Android:** the APK from https://github.com/juw12/tagalong/releases/latest (free; see [docs/install.md](docs/install.md))
+- **Windows:** [`Tagalong-Windows-Setup.exe`](https://github.com/juw12/tagalong/releases/download/desktop/Tagalong-Windows-Setup.exe) (no admin needed) or [`Tagalong-Windows-Portable.zip`](https://github.com/juw12/tagalong/releases/download/desktop/Tagalong-Windows-Portable.zip)
+- **Mac:** [`Tagalong-macOS-AppleSilicon.dmg`](https://github.com/juw12/tagalong/releases/download/desktop/Tagalong-macOS-AppleSilicon.dmg) (M1 and newer) or [`Tagalong-macOS-Intel.dmg`](https://github.com/juw12/tagalong/releases/download/desktop/Tagalong-macOS-Intel.dmg)
+
+The Windows and Mac apps are the web app in its own window ([`desktop/`](desktop/README.md)); your trips stay on the computer. They are not code-signed: Windows asks *More info → Run anyway*, a Mac asks **System Settings → Privacy & Security → Open Anyway**.
 
 ![Tagalong on a phone: first run, a day plan, settle-up, passport](hone/judge/v1-phone.png)
 
@@ -65,7 +71,7 @@ read on 2026-11-13. Only listed features are compared; neither app was installed
 | Saved-place collections | yes | yes | not listed |
 | Travel history: countries, cities, return visits, flights, road trips | yes | not listed | yes |
 | Photos in history | one cover photo per trip | not listed | yes |
-| Platforms | any browser, Android APK, iPhone by sideload or home screen | iPhone | iPhone |
+| Platforms | any browser, Windows, Mac, Android APK, iPhone by sideload or home screen | iPhone | iPhone |
 | Works offline | yes, fully | viewing | not listed |
 | Price | free | not checked | not checked |
 
