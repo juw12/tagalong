@@ -33,7 +33,7 @@ jobs:
       matrix:
         api: [36, 35, 34, 30]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Let the runner use hardware acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -62,7 +62,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: python3 tests/device/android_check.py out/Tagalong.apk evidence "${TAG#v}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: android-api-${{ matrix.api }}
@@ -72,13 +72,13 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: App source at the version being checked
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.IOS_REF }}
           path: app-src
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Inspect the released IPA
@@ -128,7 +128,7 @@ jobs:
           ls build/Build/Products/Debug-iphonesimulator/
       - name: Install and open it in the simulator
         run: bash tests/device/ios_check.sh app-src/native/ios/App/build/Build/Products/Debug-iphonesimulator/App.app evidence
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ios-simulator
